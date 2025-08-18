@@ -156,11 +156,11 @@
     src: "/tmp/actions-runner.tar.gz"
     dest: ~/actions-runner-terraform
     remote_src: yes
-    when: not terraform_runner_dir.stat.exists or terraform_runner_dir.stat.size == 0
+  when: not terraform_runner_dir.stat.exists or terraform_runner_dir.stat.size == 0
 
 - name: Check if ansible runner directory exists
   stat:
-    path: ~/actions-runner-ansible/config.sh
+    path: ~/actions-runner-ansible
   register: ansible_runner_dir
 
 - name: Extract GitHub Actions runner for ansible repo
