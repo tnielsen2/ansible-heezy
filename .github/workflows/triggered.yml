@@ -34,13 +34,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/_build-ecr.yml
-    with:
-      tag: ${{ github.ref_name }}
-    secrets: inherit
-
   setup-aws:
     uses: ./.github/workflows/_setup-runner-aws-credentials.yml
     with:
