@@ -39,7 +39,7 @@ jobs:
       - name: Run baseline playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ needs.setup-aws.outputs.runner-session-token }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
 
   prometheus:
     if: github.event.schedule == '0 3 * * 6' || github.event.inputs.playbook == 'prometheus'
@@ -52,4 +52,4 @@ jobs:
       - name: Run prometheus playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ needs.setup-aws.outputs.runner-session-token }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
