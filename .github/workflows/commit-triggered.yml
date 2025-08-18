@@ -35,6 +35,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'push'
     uses: ./.github/workflows/_build-ecr.yml
     with:
       tag: ${{ github.ref_name }}
@@ -72,7 +73,8 @@ jobs:
               - 'playbooks/github-runner.yml'
 
   deploy:
-    needs: [build, setup-aws, detect-changes]
+    needs: [setup-aws, detect-changes]
+    if: always() && !cancelled() && !failure()
     runs-on: self-hosted
     timeout-minutes: 60
     strategy:
@@ -84,12 +86,29 @@ jobs:
         ]
       fail-fast: false
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.baseline == 'true' ||
-      needs.detect-changes.outputs.prometheus == 'true' ||
-      needs.detect-changes.outputs.github-runner == 'true'
+      always() && !cancelled() && !failure() && (
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.baseline == 'true' ||
+        needs.detect-changes.outputs.prometheus == 'true' ||
+        needs.detect-changes.outputs.github-runner == 'true'
+      )
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Restart runner to pick up docker group
+        run: |
+          sudo systemctl restart actions.runner.tnielsen2-terraform-heezy.heezy-terraform-runner.service
+          sudo systemctl restart actions.runner.tnielsen2-ansible-heezy.heezy-ansible-runner.service
+          sleep 10
+      
+      - name: Configure AWS credentials for runner
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
       
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}

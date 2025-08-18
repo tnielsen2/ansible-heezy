@@ -45,3 +45,17 @@
     state: started
     enabled: yes
   when: "'docker' not in user_groups.stdout"
+
+- name: Restart GitHub runner services to apply docker group
+  block:
+    - name: Restart terraform runner service
+      systemd:
+        name: "actions.runner.tnielsen2-terraform-heezy.heezy-terraform-runner.service"
+        state: restarted
+      ignore_errors: yes
+    - name: Restart ansible runner service
+      systemd:
+        name: "actions.runner.tnielsen2-ansible-heezy.heezy-ansible-runner.service"
+        state: restarted
+      ignore_errors: yes
+  when: "'docker' not in user_groups.stdout"
