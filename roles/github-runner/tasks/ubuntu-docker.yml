@@ -30,6 +30,8 @@
         name: "{{ github_runner_user }}"
         groups: docker
         append: yes
-    - name: Reset ssh connection to allow user changes to affect ansible user
-      meta: reset_connection
+  when: docker_check.rc != 0
+
+- name: Reset ssh connection to allow user changes to affect ansible user
+  meta: reset_connection
   when: docker_check.rc != 0
