@@ -17,6 +17,10 @@ on:
           - prometheus
         default: baseline
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   get-runner-credentials:
     runs-on: ubuntu-latest

@@ -11,6 +11,10 @@ on:
       - 'playbooks/prometheus.yml'
       - 'playbooks/github-runner.yml'
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   get-runner-credentials:
     runs-on: ubuntu-latest

@@ -7,23 +7,16 @@ on:
         description: 'Target hosts (comma-separated)'
         required: true
         type: string
-      linux_host:
-        description: 'Linux host IP'
-        required: false
-        type: string
-      windows_host:
-        description: 'Windows host IP'
-        required: false
-        type: string
       playbook:
         description: 'Playbook to run'
         required: true
         type: choice
         options:
-          - vm-bootstrap
+          - baseline
+          - prometheus
+          - github-runner
           - custom-role
-          - infrastructure
-        default: vm-bootstrap
+        default: baseline
       custom_role:
         description: 'Custom role name (if playbook=custom-role)'
         required: false
@@ -39,6 +32,10 @@ on:
         options:
           - prod
         default: prod
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   get-runner-credentials:
@@ -70,37 +67,25 @@ jobs:
       
 
       
-      - name: Create inventory
+      - name: Create dynamic inventory
         run: |
           mkdir -p inventory
-          echo "[linux]" > inventory/hosts
-          if [ -n "${{ inputs.linux_host }}" ]; then
-            echo "${{ inputs.linux_host }}" >> inventory/hosts
+          echo "[all]" > inventory/dynamic_hosts
+          IFS=',' read -ra HOSTS <<< "${{ inputs.target_hosts }}"
+          for host in "${HOSTS[@]}"; do
+            echo "$host" >> inventory/dynamic_hosts
+          done
+          echo "" >> inventory/dynamic_hosts
+          echo "[all:vars]" >> inventory/dynamic_hosts
+          echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> inventory/dynamic_hosts
+          echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> inventory/dynamic_hosts
+          echo "ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> inventory/dynamic_hosts
+      
+      - name: Run Ansible playbook
+        run: |
+          chmod +x .github/scripts/run-ansible.sh
+          EXTRA_VARS=""
+          if [ "${{ inputs.playbook }}" = "custom-role" ]; then
+            EXTRA_VARS="CUSTOM_ROLE=${{ inputs.custom_role }}"
           fi
-          echo "" >> inventory/hosts
-          echo "[windows]" >> inventory/hosts
-          if [ [ -n "${{ inputs.windows_host }}" ]; then
-            echo "${{ inputs.windows_host }}" >> inventory/hosts
-          fi
-          echo "" >> inventory/hosts
-          echo "[all:vars]" >> inventory/hosts
-          echo "ansible_user=admin" >> inventory/hosts
-          echo "ansible_ssh_private_key_file=/ansible/keys/id_rsa" >> inventory/hosts
-      
-      - name: Run VM Bootstrap
-        if: inputs.playbook == 'vm-bootstrap'
-        run: |
-          chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh linux-setup inventory/hosts "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
-      
-      - name: Run Custom Role
-        if: inputs.playbook == 'custom-role'
-        run: |
-          chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh custom-role inventory/hosts "CUSTOM_ROLE=${{ inputs.custom_role }}" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
-      
-      - name: Run Infrastructure Setup
-        if: inputs.playbook == 'infrastructure'
-        run: |
-          chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh infrastructure inventory/hosts "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ inputs.playbook }} inventory/dynamic_hosts "$EXTRA_VARS" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

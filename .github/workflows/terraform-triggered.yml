@@ -40,6 +40,10 @@ on:
         required: false
         type: string
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   get-runner-credentials:
     runs-on: ubuntu-latest
