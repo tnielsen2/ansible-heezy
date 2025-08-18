@@ -106,7 +106,7 @@ jobs:
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
         run: |
-          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ needs.setup-aws.outputs.runner-session-token }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
 
   notify:
     if: always()

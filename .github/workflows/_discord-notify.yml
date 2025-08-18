@@ -35,6 +35,8 @@ jobs:
               WEBHOOK_URL=$(echo "$WEBHOOKS" | jq -r '."${{ github.event.repository.name }}" // ""' 2>/dev/null || echo "")
             fi
           fi
+          echo "Repository: ${{ github.event.repository.name }}"
+          echo "Webhook URL: $WEBHOOK_URL"
           echo "url=$WEBHOOK_URL" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
