@@ -1,0 +1,47 @@
+name: Build and Push to ECR
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Docker tag to build'
+        required: false
+        type: string
+        default: 'latest'
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: ansible-automation
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          COMMIT_ID: ${{ github.sha }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          SHORT_COMMIT=${COMMIT_ID:0:7}
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$COMMIT_ID .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$SHORT_COMMIT .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$COMMIT_ID
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$SHORT_COMMIT
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$TAG

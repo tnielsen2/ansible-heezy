@@ -34,6 +34,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    uses: ./.github/workflows/_build-ecr.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
+
   setup-aws:
     uses: ./.github/workflows/_setup-runner-aws-credentials.yml
     with:
@@ -66,7 +72,7 @@ jobs:
               - 'playbooks/github-runner.yml'
 
   deploy:
-    needs: [setup-aws, detect-changes]
+    needs: [build, setup-aws, detect-changes]
     runs-on: self-hosted
     timeout-minutes: 60
     strategy:

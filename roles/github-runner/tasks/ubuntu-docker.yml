@@ -39,9 +39,9 @@
     append: yes
   when: "'docker' not in user_groups.stdout"
 
-- name: Refresh docker group membership
-  shell: newgrp docker
-  become: yes
-  become_user: "{{ github_runner_user }}"
+- name: Ensure Docker service is running
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
   when: "'docker' not in user_groups.stdout"
-  ignore_errors: yes
