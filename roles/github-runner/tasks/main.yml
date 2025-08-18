@@ -182,12 +182,12 @@
   become_user: runner
 
 - name: Install terraform runner service
-  command: ./svc.sh install heezy-terraform-runner
+  command: ./svc.sh install
   args:
     chdir: /home/runner/actions-runner-terraform
 
 - name: Install ansible runner service
-  command: ./svc.sh install heezy-ansible-runner
+  command: ./svc.sh install
   args:
     chdir: /home/runner/actions-runner-ansible
 
