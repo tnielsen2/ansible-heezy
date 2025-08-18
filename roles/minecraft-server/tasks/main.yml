@@ -1,0 +1,61 @@
+---
+- name: Install Java 17
+  apt:
+    name: openjdk-17-jdk
+    state: present
+
+- name: Create minecraft user
+  user:
+    name: minecraft
+    system: yes
+    shell: /bin/bash
+    home: /opt/minecraft
+
+- name: Create minecraft directory
+  file:
+    path: /opt/minecraft
+    state: directory
+    owner: minecraft
+    group: minecraft
+    mode: '0755'
+
+- name: Download Minecraft server
+  get_url:
+    url: https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar
+    dest: /opt/minecraft/server.jar
+    owner: minecraft
+    group: minecraft
+    mode: '0644'
+
+- name: Accept EULA
+  copy:
+    content: "eula=true"
+    dest: /opt/minecraft/eula.txt
+    owner: minecraft
+    group: minecraft
+
+- name: Create systemd service
+  copy:
+    content: |
+      [Unit]
+      Description=Minecraft Server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=minecraft
+      WorkingDirectory=/opt/minecraft
+      ExecStart=/usr/bin/java -Xmx2G -Xms1G -jar server.jar nogui
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/minecraft.service
+  notify:
+    - reload systemd
+    - start minecraft
+
+- name: Open firewall for Minecraft
+  ufw:
+    rule: allow
+    port: '25565'

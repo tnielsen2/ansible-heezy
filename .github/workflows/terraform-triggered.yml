@@ -1,0 +1,84 @@
+name: Terraform Triggered Provisioning
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_hosts:
+        description: 'Target host IP addresses (comma-separated)'
+        required: true
+        type: string
+      playbook:
+        description: 'Playbook to execute'
+        required: true
+        type: choice
+        options:
+          - baseline
+          - prometheus
+          - github-runner
+          - infrastructure
+          - custom-role
+        default: baseline
+      custom_role:
+        description: 'Custom role (if playbook is custom-role)'
+        required: false
+        type: choice
+        options:
+          - minecraft-server
+          - web-server
+          - game-server
+        default: minecraft-server
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+      tailscale_auth_key:
+        description: 'Tailscale auth key'
+        required: false
+        type: string
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+        
+      - name: Create dynamic inventory
+        run: |
+          mkdir -p inventory
+          echo "[all]" > inventory/dynamic_hosts
+          IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
+          for host in "${HOSTS[@]}"; do
+            echo "$host ansible_user=ubuntu ansible_ssh_private_key_file=/ansible/keys/id_rsa" >> inventory/dynamic_hosts
+          done
+          
+      - name: Run Ansible playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            -e TAILSCALE_AUTH_KEY="${{ github.event.inputs.tailscale_auth_key }}" \
+            -e ENVIRONMENT="${{ github.event.inputs.environment }}" \
+            ansible-automation \
+            -i inventory/dynamic_hosts \
+            playbooks/${{ github.event.inputs.playbook }}.yml

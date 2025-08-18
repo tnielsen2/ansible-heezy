@@ -1,0 +1,33 @@
+---
+- name: Linux Basic Setup
+  hosts: linux
+  become: yes
+  roles:
+    - tailscale
+    - prometheus-node-exporter
+  tasks:
+    - name: Set hostname
+      hostname:
+        name: "{{ hostname }}"
+      when: hostname is defined
+
+    - name: Update /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1 {{ hostname }}"
+      when: hostname is defined
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - vim
+          - htop
+          - ufw
+        state: present

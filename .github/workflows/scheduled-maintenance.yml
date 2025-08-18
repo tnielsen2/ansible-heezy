@@ -1,0 +1,73 @@
+name: Scheduled Maintenance
+
+on:
+  schedule:
+    # Baseline: Weekly on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+    # Prometheus: Weekly on Saturdays at 3 AM UTC  
+    - cron: '0 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      playbook:
+        description: 'Playbook to run'
+        required: true
+        type: choice
+        options:
+          - baseline
+          - prometheus
+        default: baseline
+
+jobs:
+  baseline:
+    if: github.event.schedule == '0 3 * * 0' || github.event.inputs.playbook == 'baseline'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+      - name: Run baseline playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            ansible-automation \
+            -i inventory/hosts.heezy \
+            playbooks/baseline.yml
+
+  prometheus:
+    if: github.event.schedule == '0 3 * * 6' || github.event.inputs.playbook == 'prometheus'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+      - name: Run prometheus playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            ansible-automation \
+            -i inventory/hosts.heezy \
+            playbooks/prometheus.yml

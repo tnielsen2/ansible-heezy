@@ -1,0 +1,35 @@
+---
+- name: Windows Basic Setup
+  hosts: windows
+  tasks:
+    - name: Install Chocolatey
+      win_chocolatey:
+        name: chocolatey
+        state: present
+
+    - name: Install essential packages
+      win_chocolatey:
+        name:
+          - googlechrome
+          - 7zip
+          - notepadplusplus
+          - git
+        state: present
+
+    - name: Configure Windows Firewall
+      win_firewall:
+        state: enabled
+        profiles:
+          - domain
+          - private
+          - public
+
+    - name: Disable unnecessary services
+      win_service:
+        name: "{{ item }}"
+        state: stopped
+        start_mode: disabled
+      loop:
+        - Fax
+        - TapiSrv
+      ignore_errors: yes

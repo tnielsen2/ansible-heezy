@@ -1,0 +1,129 @@
+name: Ansible Provision
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_hosts:
+        description: 'Target hosts (comma-separated)'
+        required: true
+        type: string
+      linux_host:
+        description: 'Linux host IP'
+        required: false
+        type: string
+      windows_host:
+        description: 'Windows host IP'
+        required: false
+        type: string
+      playbook:
+        description: 'Playbook to run'
+        required: true
+        type: choice
+        options:
+          - vm-bootstrap
+          - custom-role
+          - infrastructure
+        default: vm-bootstrap
+      custom_role:
+        description: 'Custom role name (if playbook=custom-role)'
+        required: false
+        type: choice
+        options:
+          - minecraft-server
+          - web-server
+          - game-server
+          - tailscale
+          - prometheus-node-exporter
+
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+
+jobs:
+  provision:
+    runs-on: self-hosted
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Pull Ansible container from ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: docker pull $ECR_REGISTRY/ansible-automation:latest
+      
+      - name: Create inventory
+        run: |
+          mkdir -p inventory
+          echo "[linux]" > inventory/hosts
+          if [ -n "${{ inputs.linux_host }}" ]; then
+            echo "${{ inputs.linux_host }}" >> inventory/hosts
+          fi
+          echo "" >> inventory/hosts
+          echo "[windows]" >> inventory/hosts
+          if [ [ -n "${{ inputs.windows_host }}" ]; then
+            echo "${{ inputs.windows_host }}" >> inventory/hosts
+          fi
+          echo "" >> inventory/hosts
+          echo "[all:vars]" >> inventory/hosts
+          echo "ansible_user=admin" >> inventory/hosts
+          echo "ansible_ssh_private_key_file=/ansible/keys/id_rsa" >> inventory/hosts
+      
+      - name: Run VM Bootstrap
+        if: inputs.playbook == 'vm-bootstrap'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            -e AWS_DEFAULT_REGION=us-east-2 \
+            $ECR_REGISTRY/ansible-automation:latest \
+            -i inventory/hosts \
+            playbooks/linux-setup.yml playbooks/windows-setup.yml \
+            --extra-vars "target_hosts=${{ inputs.target_hosts }} environment=${{ inputs.environment }}"
+      
+      - name: Run Custom Role
+        if: inputs.playbook == 'custom-role'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            -e AWS_DEFAULT_REGION=us-east-2 \
+            $ECR_REGISTRY/ansible-automation:latest \
+            -i inventory/hosts \
+            playbooks/custom-role.yml \
+            --extra-vars "target_hosts=${{ inputs.target_hosts }} custom_role=${{ inputs.custom_role }} environment=${{ inputs.environment }}"
+      
+      - name: Run Infrastructure Setup
+        if: inputs.playbook == 'infrastructure'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            -e AWS_DEFAULT_REGION=us-east-2 \
+            $ECR_REGISTRY/ansible-automation:latest \
+            -i inventory/hosts \
+            playbooks/infrastructure.yml \
+            --extra-vars "target_hosts=${{ inputs.target_hosts }} environment=${{ inputs.environment }}"

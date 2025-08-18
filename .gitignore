@@ -1,0 +1,45 @@
+# Ansible
+*.retry
+.ansible/
+host_vars/
+group_vars/
+vault_pass.txt
+*.vault
+
+# SSH Keys
+id_rsa*
+*.pem
+*.key
+
+# Credentials
+credentials.yml
+secrets.yml
+vault.yml
+
+# Logs
+*.log
+ansible.log
+
+# Temporary files
+.tmp/
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Docker
+.dockerignore

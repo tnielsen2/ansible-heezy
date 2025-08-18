@@ -1,0 +1,6 @@
+---
+- name: GitHub Runner Setup
+  hosts: runner
+  become: yes
+  roles:
+    - github-runner

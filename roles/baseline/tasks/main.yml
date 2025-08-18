@@ -1,0 +1,13 @@
+---
+- name: Detect OS
+  set_fact:
+    is_windows: "{{ ansible_os_family == 'Windows' }}"
+    is_linux: "{{ ansible_os_family in ['Debian', 'RedHat'] }}"
+
+- name: Include Linux tasks
+  include_tasks: linux.yml
+  when: is_linux
+
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: is_windows

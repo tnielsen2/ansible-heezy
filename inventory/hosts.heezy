@@ -1,0 +1,35 @@
+[management]
+192.168.1.19 hostname=management
+
+[testvm]
+192.168.1.28 hostname=testvm1
+192.168.1.29 hostname=testvm2
+
+[minecraft]
+192.168.1.30 hostname=minecraftvm2
+
+[prometheus]
+192.168.1.19
+
+[runner]
+192.168.1.19
+
+[linux:children]
+management
+testvm
+minecraft
+
+[windows]
+192.168.1.32 hostname=windows-vm
+
+[all:vars]
+ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}
+ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
+ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
+
+[windows:vars]
+ansible_connection=winrm
+ansible_winrm_transport=ntlm
+ansible_winrm_server_cert_validation=ignore
+ansible_user={{ lookup('aws_secret', 'production/heezy/windows/administrator/credentials', region='us-east-2') | from_json | json_query('username') }}
+ansible_password={{ lookup('aws_secret', 'production/heezy/windows/administrator/credentials', region='us-east-2') | from_json | json_query('password') }}

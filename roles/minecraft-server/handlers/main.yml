@@ -1,0 +1,10 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: start minecraft
+  systemd:
+    name: minecraft
+    state: started
+    enabled: yes

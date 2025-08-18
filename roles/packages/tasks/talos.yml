@@ -1,0 +1,16 @@
+---
+- name: Talos OS package management
+  debug:
+    msg: "Talos OS uses immutable filesystem - packages managed via machine config"
+
+- name: Verify Talos node status
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:50000/api/v1alpha1/version"
+    method: GET
+  register: talos_version
+  ignore_errors: yes
+
+- name: Display Talos version
+  debug:
+    var: talos_version.json
+  when: talos_version is succeeded

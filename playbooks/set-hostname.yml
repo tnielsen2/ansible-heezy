@@ -1,0 +1,16 @@
+---
+- name: Set Hostname
+  hosts: linux
+  become: yes
+  tasks:
+    - name: Set hostname
+      hostname:
+        name: "{{ hostname }}"
+      when: hostname is defined
+
+    - name: Update /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1 {{ hostname }}"
+      when: hostname is defined

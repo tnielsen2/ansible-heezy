@@ -1,0 +1,8 @@
+---
+- name: Baseline Infrastructure Setup
+  hosts: all
+  become: yes
+  roles:
+    - packages
+    - prometheus-node-exporter
+    - tailscale

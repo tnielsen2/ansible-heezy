@@ -1,0 +1,15 @@
+---
+- name: Test Windows Connection
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Test connection
+      win_ping:
+      
+    - name: Get system info
+      win_shell: systeminfo | findstr /B /C:"OS Name" /C:"OS Version"
+      register: system_info
+      
+    - name: Display system info
+      debug:
+        var: system_info.stdout_lines

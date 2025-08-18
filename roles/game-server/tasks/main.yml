@@ -1,0 +1,29 @@
+---
+- name: Install Visual C++ Redistributable
+  win_chocolatey:
+    name: vcredist-all
+    state: present
+
+- name: Install .NET Framework
+  win_chocolatey:
+    name: dotnetfx
+    state: present
+
+- name: Create game server directory
+  win_file:
+    path: C:\GameServer
+    state: directory
+
+- name: Configure Windows Firewall for game ports
+  win_firewall_rule:
+    name: "Game Server Ports"
+    localport: "7777-7784"
+    action: allow
+    direction: in
+    protocol: udp
+    state: present
+
+- name: Install Steam CMD
+  win_chocolatey:
+    name: steamcmd
+    state: present

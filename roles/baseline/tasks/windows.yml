@@ -1,0 +1,37 @@
+---
+- name: Install Chocolatey
+  win_chocolatey:
+    name: chocolatey
+    state: present
+
+- name: Install common tools via Chocolatey
+  win_chocolatey:
+    name:
+      - vim
+      - curl
+      - wget
+      - 7zip
+      - git
+      - googlechrome
+    state: present
+
+- name: Install AWS CLI
+  win_chocolatey:
+    name: awscli
+    state: present
+
+- name: Install Docker Desktop
+  win_chocolatey:
+    name: docker-desktop
+    state: present
+
+- name: Download and install Prometheus Windows Exporter
+  block:
+    - name: Download Windows Exporter
+      win_get_url:
+        url: "https://github.com/prometheus-community/windows_exporter/releases/download/v0.24.0/windows_exporter-0.24.0-amd64.msi"
+        dest: "C:\\temp\\windows_exporter.msi"
+    - name: Install Windows Exporter
+      win_package:
+        path: "C:\\temp\\windows_exporter.msi"
+        state: present

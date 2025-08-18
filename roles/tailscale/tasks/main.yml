@@ -1,0 +1,84 @@
+---
+- name: Install Tailscale (Debian/Ubuntu)
+  block:
+    - name: Add Tailscale GPG key
+      apt_key:
+        url: https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg
+        state: present
+
+    - name: Add Tailscale repository
+      apt_repository:
+        repo: "deb https://pkgs.tailscale.com/stable/ubuntu jammy main"
+        state: present
+
+    - name: Install Tailscale
+      apt:
+        name: tailscale
+        state: present
+        update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install Tailscale (RHEL/CentOS)
+  block:
+    - name: Add Tailscale repository
+      yum_repository:
+        name: tailscale-stable
+        description: Tailscale stable
+        baseurl: https://pkgs.tailscale.com/stable/centos/8/noarch/
+        gpgkey: https://pkgs.tailscale.com/stable/centos/8/noarch/repodata/repomd.xml.key
+        gpgcheck: yes
+
+    - name: Install Tailscale
+      yum:
+        name: tailscale
+        state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Start and enable Tailscale
+  systemd:
+    name: tailscaled
+    state: started
+    enabled: yes
+
+- name: Get Tailscale OAuth credentials from AWS Secrets Manager
+  set_fact:
+    tailscale_oauth: "{{ lookup('aws_secret', 'production/heezy/tailscale', region='us-east-2') | from_json }}"
+  when: tailscale_auth_key is not defined and environment == 'prod'
+
+- name: Get OAuth access token
+  uri:
+    url: https://api.tailscale.com/api/v2/oauth/token
+    method: POST
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: "grant_type=client_credentials&client_id={{ tailscale_oauth.client_id }}&client_secret={{ tailscale_oauth.client_secret }}"
+  register: oauth_response
+  when: tailscale_oauth is defined
+
+- name: Generate auth key using OAuth token
+  uri:
+    url: https://api.tailscale.com/api/v2/tailnet/-/keys
+    method: POST
+    headers:
+      Authorization: "Bearer {{ oauth_response.json.access_token }}"
+    body_format: json
+    body:
+      capabilities:
+        devices:
+          create:
+            reusable: false
+            ephemeral: false
+      expirySeconds: 3600
+  register: auth_key_response
+  when: oauth_response is defined
+
+- name: Set generated auth key
+  set_fact:
+    tailscale_auth_key: "{{ auth_key_response.json.key }}"
+  when: auth_key_response is defined
+
+- name: Connect to Tailscale
+  command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
+  register: tailscale_result
+  changed_when: "'Success' in tailscale_result.stdout"
+  when: tailscale_auth_key is defined

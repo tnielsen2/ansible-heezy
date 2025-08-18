@@ -1,0 +1,122 @@
+name: Commit Triggered Deployment
+
+on:
+  push:
+    paths:
+      - 'inventory/**'
+      - 'roles/baseline/**'
+      - 'roles/prometheus/**'
+      - 'roles/github-runner/**'
+      - 'playbooks/baseline.yml'
+      - 'playbooks/prometheus.yml'
+      - 'playbooks/github-runner.yml'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      baseline: ${{ steps.changes.outputs.baseline }}
+      prometheus: ${{ steps.changes.outputs.prometheus }}
+      github-runner: ${{ steps.changes.outputs.github-runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            baseline:
+              - 'inventory/**'
+              - 'roles/baseline/**'
+              - 'playbooks/baseline.yml'
+            prometheus:
+              - 'inventory/**'
+              - 'roles/prometheus/**'
+              - 'playbooks/prometheus.yml'
+            github-runner:
+              - 'inventory/**'
+              - 'roles/github-runner/**'
+              - 'playbooks/github-runner.yml'
+
+  baseline:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.baseline == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+      - name: Run baseline playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            ansible-automation \
+            -i inventory/hosts.heezy \
+            playbooks/baseline.yml
+
+  prometheus:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.prometheus == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+      - name: Run prometheus playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            ansible-automation \
+            -i inventory/hosts.heezy \
+            playbooks/prometheus.yml
+
+  github-runner:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.github-runner == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      - name: Build Ansible container
+        run: docker build -t ansible-automation .
+      - name: Run github-runner playbook
+        run: |
+          docker run --rm --network host \
+            -v $PWD:/ansible \
+            -v ~/.ssh:/ansible/keys:ro \
+            ansible-automation \
+            -i inventory/hosts.heezy \
+            playbooks/github-runner.yml
