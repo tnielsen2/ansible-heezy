@@ -1,0 +1,68 @@
+---
+- name: Clean up Docker system
+  block:
+    - name: Remove dangling Docker images
+      command: docker image prune -f
+      become: yes
+      become_user: "{{ github_runner_user }}"
+      ignore_errors: yes
+    - name: Remove unused Docker containers
+      command: docker container prune -f
+      become: yes
+      become_user: "{{ github_runner_user }}"
+      ignore_errors: yes
+    - name: Remove unused Docker networks
+      command: docker network prune -f
+      become: yes
+      become_user: "{{ github_runner_user }}"
+      ignore_errors: yes
+    - name: Remove unused Docker volumes
+      command: docker volume prune -f
+      become: yes
+      become_user: "{{ github_runner_user }}"
+      ignore_errors: yes
+
+- name: Clean up runner workspaces
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/home/{{ github_runner_user }}/actions-runner-terraform/_work"
+    - "/home/{{ github_runner_user }}/actions-runner-ansible/_work"
+  ignore_errors: yes
+
+- name: Set up log rotation for runner logs
+  copy:
+    content: |
+      /home/{{ github_runner_user }}/actions-runner-*/*.log {
+          daily
+          rotate 7
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 644 {{ github_runner_user }} {{ github_runner_user }}
+      }
+    dest: /etc/logrotate.d/github-runner
+    mode: '0644'
+
+- name: Clean up old log files
+  find:
+    paths:
+      - "/home/{{ github_runner_user }}/actions-runner-terraform"
+      - "/home/{{ github_runner_user }}/actions-runner-ansible"
+    patterns: "*.log"
+    age: "7d"
+  register: old_logs
+
+- name: Remove old log files
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_logs.files }}"
+  ignore_errors: yes
+
+- name: Clean up package cache
+  apt:
+    autoclean: yes
+    autoremove: yes

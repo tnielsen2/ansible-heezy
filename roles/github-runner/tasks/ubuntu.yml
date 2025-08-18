@@ -30,3 +30,6 @@
 
 - name: Install GitHub CLI and runners
   include_tasks: ubuntu-github.yml
+
+- name: Clean up system resources
+  include_tasks: ubuntu-cleanup.yml
