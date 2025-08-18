@@ -148,7 +148,6 @@ docker run --rm --network host \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SESSION_TOKEN \
-    -e ANSIBLE_DEBUG=0 \
     "$FULL_IMAGE_NAME" \
     -i "$INVENTORY" \
     ${LIMIT_HOSTS:+--limit "$LIMIT_HOSTS"} \
