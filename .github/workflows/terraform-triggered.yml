@@ -61,8 +61,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-
-        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
       - name: Determine inventory
         id: inventory
         run: |
@@ -84,7 +91,7 @@ jobs:
           
       - name: Run Ansible playbook
         run: |
-          chmod +x .github/scripts/run-ansible.sh
+          chmod +x .github/scripts/run-ansible.sh >/dev/null 2>&1
           EXTRA_VARS=""
           if [ "${{ github.event.inputs.playbook }}" = "custom-role" ]; then
             EXTRA_VARS="CUSTOM_ROLE=${{ github.event.inputs.custom_role }}"
@@ -92,4 +99,4 @@ jobs:
           if [ -n "${{ github.event.inputs.tailscale_auth_key }}" ]; then
             EXTRA_VARS="${EXTRA_VARS} TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}"
           fi
-          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ needs.setup-aws.outputs.runner-session-token }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_SESSION_TOKEN" ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
