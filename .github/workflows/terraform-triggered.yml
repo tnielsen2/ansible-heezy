@@ -99,4 +99,4 @@ jobs:
           if [ -n "${{ github.event.inputs.tailscale_auth_key }}" ]; then
             EXTRA_VARS="${EXTRA_VARS} TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}"
           fi
-          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_SESSION_TOKEN" ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
