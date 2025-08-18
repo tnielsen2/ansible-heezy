@@ -20,8 +20,8 @@ ECR_REGISTRY="$PROD_AWS_ACCOUNT_NUMBER.dkr.ecr.us-east-2.amazonaws.com"
 # Login to ECR
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-# Pull container
-docker pull $ECR_REGISTRY/ansible-automation:latest
+# Pull container for correct platform
+docker pull --platform linux/amd64 $ECR_REGISTRY/ansible-automation:latest
 
 # Run Ansible
 docker run --rm --network host \
