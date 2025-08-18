@@ -6,32 +6,33 @@ Containerized Ansible automation with GitHub workflow dispatch integration for V
 
 ### Local Development
 ```bash
-# Build and push to ECR
-./build.sh -a YOUR_AWS_ACCOUNT_NUMBER
+# Build and test locally (no AWS required for build)
+./build-local.sh --test
 
-# Run playbooks locally
-./run-ansible.sh -a YOUR_AWS_ACCOUNT_NUMBER baseline
-./run-ansible.sh -a YOUR_AWS_ACCOUNT_NUMBER -i inventory/dynamic_hosts custom-role --extra-vars "custom_role=minecraft-server"
+# Run specific playbooks locally (requires AWS credentials)
+AWS_DEFAULT_PROFILE=myprofile ./run-ansible.sh -t local baseline
+./run-ansible.sh -t local custom-role --extra-vars "custom_role=minecraft-server"
 ```
 
 ### GitHub Workflows
 Trigger via GitHub Actions with:
 - `target_hosts`: Comma-separated host list (e.g., "192.168.1.19,192.168.1.32")
-- `playbook`: `baseline`, `prometheus`, `github-runner`, `custom-role`
+- `playbook`: `baseline`, `prometheus`, `github-runner`, `tailscale`, `custom-role`
 - `custom_role`: `minecraft-server`, `web-server`
 - `environment`: `prod`
 
 ## Roles
 
 - **baseline**: OS detection and package installation (Ubuntu/Windows/Talos support)
-  - Common tools: vim, curl, wget, Docker, AWS CLI
-  - Includes prometheus-node-exporter and tailscale
-- **prometheus**: Containerized Prometheus server with auto-discovery
+  - Ubuntu: Docker, AWS CLI, common tools, node-exporter, tailscale
+  - Windows: Chocolatey, Docker Desktop, AWS CLI, common tools, windows-exporter, tailscale
+  - Talos: Immutable OS verification
+- **prometheus**: Containerized Prometheus server with persistent storage
 - **github-runner**: Self-hosted GitHub Actions runner with Terraform support
-- **minecraft-server**: Containerized Minecraft Bedrock server
+- **minecraft-server**: Containerized Minecraft Bedrock server (Docker Compose)
 - **web-server**: nginx, SSL setup, security hardening
-- **tailscale**: VPN client installation and registration
-- **prometheus-node-exporter**: System metrics collection
+- **tailscale**: VPN network connection (requires auth key)
+- **prometheus-node-exporter**: System metrics collection for Linux hosts
 
 ## Infrastructure Setup
 
@@ -44,6 +45,9 @@ gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19" -f playbook
 
 # Setup GitHub runner
 gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19" -f playbook="github-runner"
+
+# Connect to Tailscale VPN
+gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19,192.168.1.32" -f playbook="tailscale"
 
 # Deploy custom applications
 gh workflow run ansible-provision.yml -f target_hosts="192.168.1.30" -f playbook="custom-role" -f custom_role="minecraft-server"
@@ -161,8 +165,30 @@ aws secretsmanager create-secret \
   --region us-east-2
 ```
 
+## Tailscale Setup
+
+```bash
+# Connect hosts to Tailscale VPN (requires auth key)
+TAILSCALE_AUTH_KEY=tskey-auth-xxx ./run-ansible.sh -t local tailscale
+
+# Via GitHub workflow
+gh workflow run terraform-triggered.yml \
+  -f target_hosts="192.168.1.19,192.168.1.32" \
+  -f playbook="custom-role" \
+  -f custom_role="tailscale" \
+  -f tailscale_auth_key="tskey-auth-xxx"
+```
+
 ## Monitoring
 
-- Prometheus server runs on port 9090 on prometheus hosts
-- Node exporter runs on port 9100 on all Linux hosts
-- Windows exporter runs on port 9182 on Windows hosts
+- **Prometheus server**: Port 9090 (containerized with persistent storage)
+- **Node exporter**: Port 9100 on Linux hosts
+- **Windows exporter**: Port 9182 on Windows hosts
+- **Minecraft server**: Port 19132/udp (Bedrock protocol)
+
+## Network
+
+- **Tailscale VPN**: Connects all hosts to private mesh network
+- **Firewall**: UFW configured for required ports
+- **SSH**: Password authentication via AWS Secrets Manager
+- **WinRM**: NTLM authentication for Windows hosts

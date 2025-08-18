@@ -1,10 +1,18 @@
 ---
+- name: Check if prometheus user exists
+  getent:
+    database: passwd
+    key: prometheus
+  register: prometheus_user_check
+  failed_when: false
+  
 - name: Create prometheus user
   user:
     name: prometheus
     system: yes
     shell: /bin/false
     home: /var/lib/prometheus
+  when: prometheus_user_check.failed
 
 - name: Download node_exporter
   get_url:

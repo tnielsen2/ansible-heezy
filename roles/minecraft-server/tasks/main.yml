@@ -30,7 +30,7 @@
     mode: '0644'
 
 - name: Start Minecraft Bedrock server
-  docker_compose:
+  community.docker.docker_compose_v2:
     project_src: /opt/minecraft
     state: present
 

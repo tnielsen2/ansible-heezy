@@ -67,7 +67,7 @@
     url: https://api.tailscale.com/api/v2/tailnet/-/keys
     method: POST
     headers:
-      Authorization: "Bearer {{ oauth_response.json.access_token }}"
+      Authorization: "Bearer {{ (oauth_response.content | from_json).access_token }}"
     body_format: json
     body:
       capabilities:
@@ -81,7 +81,7 @@
 
 - name: Set generated auth key
   set_fact:
-    tailscale_auth_key: "{{ auth_key_response.json.key }}"
+    tailscale_auth_key: "{{ (auth_key_response.content | from_json).key }}"
   when: auth_key_response is defined
 
 - name: Connect to Tailscale (Linux)

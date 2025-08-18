@@ -58,6 +58,12 @@
         update_cache: yes
   when: ansible_os_family == "Debian"
 
+- name: Check if AWS CLI is installed
+  command: which aws
+  register: aws_cli_check
+  failed_when: false
+  changed_when: false
+
 - name: Install AWS CLI
   block:
     - name: Download AWS CLI
@@ -73,9 +79,17 @@
       command: /tmp/aws/install
       args:
         creates: /usr/local/bin/aws
+  when: aws_cli_check.rc != 0
 
 - name: Install Prometheus Node Exporter
   block:
+    - name: Check if prometheus user exists
+      getent:
+        database: passwd
+        key: prometheus
+      register: prometheus_user_check
+      failed_when: false
+      
     - name: Create prometheus user
       user:
         name: prometheus
@@ -83,6 +97,7 @@
         shell: /bin/false
         home: /var/lib/prometheus
         create_home: no
+      when: prometheus_user_check.failed
     - name: Download Node Exporter
       get_url:
         url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"

@@ -20,10 +20,17 @@
       - notepadplusplus
     state: present
 
+- name: Check if AWS CLI is installed
+  win_command: aws --version
+  register: aws_cli_check_win
+  failed_when: false
+  changed_when: false
+
 - name: Install AWS CLI
   win_chocolatey:
     name: awscli
     state: present
+  when: aws_cli_check_win.rc != 0
 
 - name: Install Docker Desktop
   win_chocolatey:

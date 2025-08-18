@@ -1,6 +1,6 @@
 ---
 - name: restart minecraft
-  docker_compose:
+  community.docker.docker_compose_v2:
     project_src: /opt/minecraft
     state: present
     restarted: yes
