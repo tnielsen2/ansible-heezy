@@ -100,13 +100,14 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
           aws-region: us-east-2
       
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build local Ansible container
+        run: |
+          docker build -t ansible-automation:local .
       
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
         run: |
-          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible-local.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
 
   notify:
     if: always()
