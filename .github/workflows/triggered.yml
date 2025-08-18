@@ -1,4 +1,4 @@
-name: Commit Triggered Deployment
+name: Triggered Deployment
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - 'playbooks/baseline.yml'
       - 'playbooks/prometheus.yml'
       - 'playbooks/github-runner.yml'
-      - '.github/workflows/commit-triggered.yml'
+      - '.github/workflows/triggered.yml'
   workflow_dispatch:
     inputs:
       playbook:
@@ -94,13 +94,7 @@ jobs:
       )
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Restart runner to pick up docker group
-        run: |
-          sudo systemctl restart actions.runner.tnielsen2-terraform-heezy.heezy-terraform-runner.service
-          sudo systemctl restart actions.runner.tnielsen2-ansible-heezy.heezy-ansible-runner.service
-          sleep 10
-      
+
       - name: Configure AWS credentials for runner
         uses: aws-actions/configure-aws-credentials@v4
         with:

@@ -97,7 +97,7 @@ Triggered by external Terraform CI with host IP inputs for immediate provisionin
 - **Baseline**: Weekly on Sundays at 3 AM UTC
 - **Prometheus**: Weekly on Saturdays at 3 AM UTC
 
-### Commit Triggered (`commit-triggered.yml`)
+### Triggered (`triggered.yml`)
 Automatically runs when changes are detected in:
 - `inventory/**`
 - `roles/baseline/**`, `roles/prometheus/**`, `roles/github-runner/**`
