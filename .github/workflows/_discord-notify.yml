@@ -29,14 +29,22 @@ jobs:
         id: webhook
         run: |
           WEBHOOK_URL=""
+          echo "Repository: ${{ github.event.repository.name }}"
+          
           if aws secretsmanager describe-secret --secret-id all/heezy/discord/webhooks >/dev/null 2>&1; then
+            echo "Secret exists, retrieving webhooks..."
             WEBHOOKS=$(aws secretsmanager get-secret-value --secret-id all/heezy/discord/webhooks --query SecretString --output text 2>/dev/null)
             if [ $? -eq 0 ] && [ -n "$WEBHOOKS" ]; then
+              echo "Webhooks retrieved: $WEBHOOKS"
               WEBHOOK_URL=$(echo "$WEBHOOKS" | jq -r '."${{ github.event.repository.name }}" // ""' 2>/dev/null || echo "")
+            else
+              echo "Failed to retrieve webhook content"
             fi
+          else
+            echo "Secret all/heezy/discord/webhooks does not exist"
           fi
-          echo "Repository: ${{ github.event.repository.name }}"
-          echo "Webhook URL: $WEBHOOK_URL"
+          
+          echo "Final webhook URL: $WEBHOOK_URL"
           echo "url=$WEBHOOK_URL" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification

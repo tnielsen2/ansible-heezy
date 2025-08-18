@@ -46,8 +46,16 @@
     enabled: yes
   when: "'docker' not in user_groups.stdout"
 
-- name: Restart GitHub runner services to apply docker group
+- name: Ensure Docker daemon is running and restart runners
   block:
+    - name: Restart Docker daemon
+      systemd:
+        name: docker
+        state: restarted
+    - name: Wait for Docker socket
+      wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
     - name: Restart terraform runner service
       systemd:
         name: "actions.runner.tnielsen2-terraform-heezy.heezy-terraform-runner.service"
