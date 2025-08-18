@@ -10,6 +10,7 @@ on:
       - 'playbooks/baseline.yml'
       - 'playbooks/prometheus.yml'
       - 'playbooks/github-runner.yml'
+      - '.github/workflows/commit-triggered.yml'
 
 permissions:
   id-token: write
