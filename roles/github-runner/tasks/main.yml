@@ -132,8 +132,8 @@
     state: directory
     mode: '0755'
   loop:
-    - ~/actions-runner-terraform
-    - ~/actions-runner-ansible
+    - "{{ ansible_env.HOME }}/actions-runner-terraform"
+    - "{{ ansible_env.HOME }}/actions-runner-ansible"
 
 - name: Check if GitHub Actions runner is downloaded
   stat:
@@ -148,25 +148,25 @@
 
 - name: Check if terraform runner directory exists
   stat:
-    path: ~/actions-runner-terraform
+    path: "{{ ansible_env.HOME }}/actions-runner-terraform"
   register: terraform_runner_dir
 
 - name: Extract GitHub Actions runner for terraform repo
   unarchive:
     src: "/tmp/actions-runner.tar.gz"
-    dest: ~/actions-runner-terraform
+    dest: "{{ ansible_env.HOME }}/actions-runner-terraform"
     remote_src: yes
   when: not terraform_runner_dir.stat.exists or terraform_runner_dir.stat.size == 0
 
 - name: Check if ansible runner directory exists
   stat:
-    path: ~/actions-runner-ansible
+    path: "{{ ansible_env.HOME }}/actions-runner-ansible"
   register: ansible_runner_dir
 
 - name: Extract GitHub Actions runner for ansible repo
   unarchive:
     src: "/tmp/actions-runner.tar.gz"
-    dest: ~/actions-runner-ansible
+    dest: "{{ ansible_env.HOME }}/actions-runner-ansible"
     remote_src: yes
   when: not ansible_runner_dir.stat.exists or ansible_runner_dir.stat.size == 0
 
@@ -178,7 +178,7 @@
     --labels self-hosted,linux,x64,terraform
     --unattended
   args:
-    chdir: ~/actions-runner-terraform
+    chdir: "{{ ansible_env.HOME }}/actions-runner-terraform"
   become: no
 
 - name: Configure ansible-heezy runner
@@ -189,25 +189,25 @@
     --labels self-hosted,linux,x64,ansible
     --unattended
   args:
-    chdir: ~/actions-runner-ansible
+    chdir: "{{ ansible_env.HOME }}/actions-runner-ansible"
   become: no
 
 - name: Install terraform runner service
   command: ./svc.sh install
   args:
-    chdir: ~/actions-runner-terraform
+    chdir: "{{ ansible_env.HOME }}/actions-runner-terraform"
 
 - name: Install ansible runner service
   command: ./svc.sh install
   args:
-    chdir: ~/actions-runner-ansible
+    chdir: "{{ ansible_env.HOME }}/actions-runner-ansible"
 
 - name: Start terraform runner service
   command: ./svc.sh start
   args:
-    chdir: ~/actions-runner-terraform
+    chdir: "{{ ansible_env.HOME }}/actions-runner-terraform"
 
 - name: Start ansible runner service
   command: ./svc.sh start
   args:
-    chdir: ~/actions-runner-ansible
+    chdir: "{{ ansible_env.HOME }}/actions-runner-ansible"
