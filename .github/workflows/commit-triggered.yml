@@ -2,6 +2,7 @@ name: Commit Triggered Deployment
 
 on:
   push:
+    branches: [main]
     paths:
       - 'inventory/**'
       - 'roles/baseline/**'
@@ -11,6 +12,7 @@ on:
       - 'playbooks/prometheus.yml'
       - 'playbooks/github-runner.yml'
       - '.github/workflows/commit-triggered.yml'
+  workflow_dispatch:
 
 permissions:
   id-token: write
