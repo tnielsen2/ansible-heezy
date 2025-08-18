@@ -48,28 +48,14 @@ permissions:
   contents: read
 
 jobs:
-  get-runner-credentials:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
-      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
-          aws-region: us-east-2
-
-      - name: Get runner credentials from AWS Secrets
-        id: get-creds
-        run: |
-          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
-          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
-          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+  setup-aws:
+    uses: ./.github/workflows/_setup-runner-aws-credentials.yml
+    with:
+      runner-type: ubuntu-latest
+    secrets: inherit
 
   provision:
-    needs: get-runner-credentials
+    needs: setup-aws
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
@@ -106,4 +92,4 @@ jobs:
           if [ -n "${{ github.event.inputs.tailscale_auth_key }}" ]; then
             EXTRA_VARS="${EXTRA_VARS} TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}"
           fi
-          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

@@ -22,46 +22,34 @@ permissions:
   contents: read
 
 jobs:
-  get-runner-credentials:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
-      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
-          aws-region: us-east-2
-
-      - name: Get runner credentials from AWS Secrets
-        id: get-creds
-        run: |
-          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
-          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
-          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+  setup-aws:
+    uses: ./.github/workflows/_setup-runner-aws-credentials.yml
+    with:
+      runner-type: ubuntu-latest
+    secrets: inherit
 
   baseline:
     if: github.event.schedule == '0 3 * * 0' || github.event.inputs.playbook == 'baseline'
-    needs: get-runner-credentials
+    needs: setup-aws
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      
       - name: Run baseline playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
 
   prometheus:
     if: github.event.schedule == '0 3 * * 6' || github.event.inputs.playbook == 'prometheus'
-    needs: get-runner-credentials
+    needs: setup-aws
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      
       - name: Run prometheus playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

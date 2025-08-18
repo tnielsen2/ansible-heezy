@@ -34,25 +34,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  get-runner-credentials:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
-      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
-          aws-region: us-east-2
-
-      - name: Get runner credentials from AWS Secrets
-        id: get-creds
-        run: |
-          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
-          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
-          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+  setup-aws:
+    uses: ./.github/workflows/_setup-runner-aws-credentials.yml
+    with:
+      runner-type: ubuntu-latest
+    secrets: inherit
 
   detect-changes:
     runs-on: ubuntu-latest
@@ -80,7 +66,7 @@ jobs:
               - 'playbooks/github-runner.yml'
 
   deploy:
-    needs: [get-runner-credentials, detect-changes]
+    needs: [setup-aws, detect-changes]
     runs-on: self-hosted
     timeout-minutes: 60
     strategy:
@@ -99,25 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Debug - Check Docker and AWS access
-        run: |
-          echo "Docker version:"
-          docker --version
-          echo "AWS CLI version:"
-          aws --version
-          echo "Testing ECR login..."
-          aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}.dkr.ecr.us-east-2.amazonaws.com
-          echo "ECR login successful"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ needs.get-runner-credentials.outputs.runner-access-key }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.get-runner-credentials.outputs.runner-secret-key }}
-          AWS_DEFAULT_REGION: us-east-2
-      
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
         run: |
-          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ needs.get-runner-credentials.outputs.runner-access-key }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.get-runner-credentials.outputs.runner-secret-key }}
-          AWS_DEFAULT_REGION: us-east-2
+          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.setup-aws.outputs.runner-access-key }} ${{ needs.setup-aws.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
