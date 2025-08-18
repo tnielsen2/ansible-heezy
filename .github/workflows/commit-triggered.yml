@@ -13,6 +13,17 @@ on:
       - 'playbooks/github-runner.yml'
       - '.github/workflows/commit-triggered.yml'
   workflow_dispatch:
+    inputs:
+      playbook:
+        description: 'Playbook to run'
+        required: false
+        type: choice
+        options:
+          - all
+          - baseline
+          - prometheus
+          - github-runner
+        default: all
 
 permissions:
   id-token: write
@@ -75,12 +86,13 @@ jobs:
     strategy:
       matrix:
         playbook: [
-          { name: "baseline", condition: "${{ needs.detect-changes.outputs.baseline == 'true' }}" },
-          { name: "prometheus", condition: "${{ needs.detect-changes.outputs.prometheus == 'true' }}" },
-          { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' }}" }
+          { name: "baseline", condition: "${{ needs.detect-changes.outputs.baseline == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'baseline' }}" },
+          { name: "prometheus", condition: "${{ needs.detect-changes.outputs.prometheus == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'prometheus' }}" },
+          { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'github-runner' }}" }
         ]
       fail-fast: false
     if: |
+      github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.baseline == 'true' ||
       needs.detect-changes.outputs.prometheus == 'true' ||
       needs.detect-changes.outputs.github-runner == 'true'
