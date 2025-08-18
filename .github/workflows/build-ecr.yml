@@ -15,3 +15,12 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
     secrets: inherit
+
+  notify:
+    if: always()
+    needs: [build]
+    uses: ./.github/workflows/_discord-notify.yml
+    with:
+      status: ${{ needs.build.result == 'success' && 'success' || 'failure' }}
+      workflow-name: 'Build ECR'
+    secrets: inherit

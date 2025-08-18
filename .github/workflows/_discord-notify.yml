@@ -1,0 +1,44 @@
+name: Discord Notification
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        description: 'Workflow status (success/failure)'
+        required: true
+        type: string
+      workflow-name:
+        description: 'Workflow name'
+        required: true
+        type: string
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+
+      - name: Get Discord webhook URL
+        id: webhook
+        run: |
+          WEBHOOKS=$(aws secretsmanager get-secret-value --secret-id all/heezy/discord/webhooks --query SecretString --output text)
+          WEBHOOK_URL=$(echo $WEBHOOKS | jq -r '.["${{ github.event.repository.name }}"]')
+          echo "url=$WEBHOOK_URL" >> $GITHUB_OUTPUT
+
+      - name: Send Discord notification
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ steps.webhook.outputs.url }}
+          message: |
+            ${{ inputs.status == 'success' && '✅' || '❌' }} **${{ github.event.repository.name }}** - ${{ inputs.workflow-name }} - ${{ github.ref_name }} - ${{ inputs.status == 'success' && 'PASSED' || 'FAILED' }}
+            
+            Commit: `${{ github.sha }}`
+            Author: ${{ github.actor }}
+            [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
