@@ -1,8 +1,33 @@
 ---
-- name: Get GitHub tokens from AWS Secrets Manager
+- name: Get GitHub Personal Access Token from AWS Secrets Manager
   set_fact:
-    terraform_heezy_token: "{{ lookup('aws_secret', 'production/heezy/github/ansible-terraform-runner-token', region='us-east-2') | from_json | json_query('token') }}"
-    ansible_heezy_token: "{{ lookup('aws_secret', 'production/heezy/github/ansible-heezy-runner-token', region='us-east-2') | from_json | json_query('token') }}"
+    github_access_token: "{{ lookup('aws_secret', 'all/heezy/github/runner/personal-access-token', region='us-east-2') | from_json | json_query('token') }}"
+
+- name: Get terraform-heezy registration token
+  uri:
+    url: "https://api.github.com/repos/tnielsen2/terraform-heezy/actions/runners/registration-token"
+    headers:
+      Authorization: "token {{ github_access_token }}"
+      Accept: "application/vnd.github.v3+json"
+    method: POST
+    status_code: 201
+  register: terraform_registration
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Get ansible-heezy registration token
+  uri:
+    url: "https://api.github.com/repos/tnielsen2/ansible-heezy/actions/runners/registration-token"
+    headers:
+      Authorization: "token {{ github_access_token }}"
+      Accept: "application/vnd.github.v3+json"
+    method: POST
+    status_code: 201
+  register: ansible_registration
+  delegate_to: localhost
+  become: false
+  run_once: true
 
 - name: Update package cache
   apt:
@@ -173,7 +198,7 @@
 - name: Configure terraform-heezy runner
   command: >
     ./config.sh --url https://github.com/tnielsen2/terraform-heezy
-    --token {{ terraform_heezy_token }}
+    --token {{ terraform_registration.json.token }}
     --name heezy-terraform-runner
     --labels self-hosted,linux,x64,terraform
     --unattended
@@ -184,7 +209,7 @@
 - name: Configure ansible-heezy runner
   command: >
     ./config.sh --url https://github.com/tnielsen2/ansible-heezy
-    --token {{ ansible_heezy_token }}
+    --token {{ ansible_registration.json.token }}
     --name heezy-ansible-runner
     --labels self-hosted,linux,x64,ansible
     --unattended
