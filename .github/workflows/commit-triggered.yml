@@ -98,7 +98,26 @@ jobs:
       needs.detect-changes.outputs.github-runner == 'true'
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Debug - Check Docker and AWS access
+        run: |
+          echo "Docker version:"
+          docker --version
+          echo "AWS CLI version:"
+          aws --version
+          echo "Testing ECR login..."
+          aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}.dkr.ecr.us-east-2.amazonaws.com
+          echo "ECR login successful"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.get-runner-credentials.outputs.runner-access-key }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.get-runner-credentials.outputs.runner-secret-key }}
+          AWS_DEFAULT_REGION: us-east-2
+      
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
         run: |
           .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.get-runner-credentials.outputs.runner-access-key }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.get-runner-credentials.outputs.runner-secret-key }}
+          AWS_DEFAULT_REGION: us-east-2
