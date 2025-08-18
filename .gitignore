@@ -13,7 +13,6 @@ id_rsa*
 
 # Credentials
 credentials.yml
-secrets.yml
 vault.yml
 
 # Logs
