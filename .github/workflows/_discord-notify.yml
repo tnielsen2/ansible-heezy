@@ -28,8 +28,8 @@ jobs:
       - name: Get Discord webhook URL
         id: webhook
         run: |
-          WEBHOOKS=$(aws secretsmanager get-secret-value --secret-id all/heezy/discord/webhooks --query SecretString --output text)
-          WEBHOOK_URL=$(echo $WEBHOOKS | jq -r '.["${{ github.event.repository.name }}"]')
+          WEBHOOKS=$(aws secretsmanager get-secret-value --secret-id all/heezy/discord/webhooks --query SecretString --output text 2>/dev/null || echo '{}')
+          WEBHOOK_URL=$(echo "$WEBHOOKS" | jq -r '."${{ github.event.repository.name }}" // ""')
           echo "url=$WEBHOOK_URL" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
