@@ -4,41 +4,84 @@ Containerized Ansible automation with GitHub workflow dispatch integration for V
 
 ## Quick Start
 
+### Local Development
 ```bash
-# Build container
-docker build -t ansible-automation .
+# Build and push to ECR
+./build.sh -a YOUR_AWS_ACCOUNT_NUMBER
 
-# Run bootstrap
-docker run --rm --network host -v $PWD:/ansible -v ~/.ssh:/ansible/keys:ro ansible-automation -i inventory/hosts playbooks/linux-setup.yml
+# Run playbooks locally
+./run-ansible.sh -a YOUR_AWS_ACCOUNT_NUMBER baseline
+./run-ansible.sh -a YOUR_AWS_ACCOUNT_NUMBER -i inventory/dynamic_hosts custom-role --extra-vars "custom_role=minecraft-server"
 ```
 
-## Workflow Dispatch
-
+### GitHub Workflows
 Trigger via GitHub Actions with:
-- `target_hosts`: Comma-separated host list
-- `playbook`: `vm-bootstrap` or `custom-role`
-- `custom_role`: `minecraft-server`, `web-server`, `game-server`
-- `environment`: `dev`, `staging`, `prod`
+- `target_hosts`: Comma-separated host list (e.g., "192.168.1.19,192.168.1.32")
+- `playbook`: `baseline`, `prometheus`, `github-runner`, `custom-role`
+- `custom_role`: `minecraft-server`, `web-server`
+- `environment`: `prod`
 
 ## Roles
 
-- **baseline**: OS detection and common tools (vim, curl, wget, Docker, AWS CLI, Prometheus exporters)
-- **prometheus**: Full Prometheus server with auto-discovery of node exporters
+- **baseline**: OS detection and package installation (Ubuntu/Windows/Talos support)
+  - Common tools: vim, curl, wget, Docker, AWS CLI
+  - Includes prometheus-node-exporter and tailscale
+- **prometheus**: Containerized Prometheus server with auto-discovery
 - **github-runner**: Self-hosted GitHub Actions runner with Terraform support
-- **tailscale**: Installs and registers Tailscale client automatically
-- **prometheus-node-exporter**: Installs Prometheus node exporter for metrics collection
-- **minecraft-server**: Java 17, Minecraft server, systemd service
+- **minecraft-server**: Containerized Minecraft Bedrock server
 - **web-server**: nginx, SSL setup, security hardening
-- **game-server**: Windows game server with Steam CMD
+- **tailscale**: VPN client installation and registration
+- **prometheus-node-exporter**: System metrics collection
 
 ## Infrastructure Setup
 
 ```bash
-# Setup Tailscale and monitoring on all hosts
-gh workflow run ansible-provision.yml -f target_hosts="192.168.1.10" -f playbook="infrastructure" -f tailscale_auth_key="tskey-auth-xxx"
+# Setup baseline infrastructure on all hosts
+gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19,192.168.1.28,192.168.1.29" -f playbook="baseline"
 
-# Deploy custom role with infrastructure
-gh workflow run ansible-provision.yml -f target_hosts="192.168.1.10" -f playbook="custom-role" -f custom_role="minecraft-server" -f tailscale_auth_key="tskey-auth-xxx"
+# Deploy Prometheus server
+gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19" -f playbook="prometheus"
+
+# Setup GitHub runner
+gh workflow run ansible-provision.yml -f target_hosts="192.168.1.19" -f playbook="github-runner"
+
+# Deploy custom applications
+gh workflow run ansible-provision.yml -f target_hosts="192.168.1.30" -f playbook="custom-role" -f custom_role="minecraft-server"
+```
+
+## Local Usage
+
+### Build Container
+```bash
+# Build locally for development
+./build-local.sh
+
+# Build and test against all hosts
+./build-local.sh --test
+
+# Chain with local execution
+./build-local.sh && ./run-ansible.sh -t local baseline
+```
+
+### Run Playbooks
+```bash
+# Local development (requires AWS credentials)
+./run-ansible.sh -t local baseline
+
+# With specific AWS profile
+AWS_PROFILE=myprofile ./run-ansible.sh -t local baseline
+
+# From ECR (requires AWS account)
+./run-ansible.sh -a AWS_ACCOUNT baseline
+
+# Custom inventory
+./run-ansible.sh -t local -i inventory/custom_hosts prometheus
+
+# With extra variables
+./run-ansible.sh -t local custom-role --extra-vars "custom_role=minecraft-server"
+
+# Different ECR tag
+./run-ansible.sh -a AWS_ACCOUNT -t v1.0.0 baseline
 ```
 
 ## Workflows
@@ -59,15 +102,63 @@ Automatically runs when changes are detected in:
 ## Inventory Groups
 
 ```ini
+[management]
+192.168.1.19 hostname=management
+
+[testvm]
+192.168.1.28 hostname=testvm1
+192.168.1.29 hostname=testvm2
+
+[minecraft]
+192.168.1.30 hostname=minecraftvm2
+
+[windows]
+192.168.1.32 hostname=windows-vm
+
 [prometheus]
-192.168.1.50
+192.168.1.19
 
 [runner]
-192.168.1.60
+192.168.1.19
 
-[all]
-192.168.1.10
-192.168.1.20
+[linux:children]
+management
+testvm
+minecraft
+```
+
+## AWS Secrets Configuration
+
+### Ubuntu Credentials
+```bash
+aws secretsmanager create-secret \
+  --name "production/heezy/ubuntu/cloud-init-credentials" \
+  --secret-string '{"username": "trent", "password": "your_password"}' \
+  --region us-east-2
+```
+
+### Windows Credentials
+```bash
+aws secretsmanager create-secret \
+  --name "production/heezy/windows/administrator/credentials" \
+  --secret-string '{"username": "Administrator", "password": "your_password"}' \
+  --region us-east-2
+```
+
+### GitHub Runner Token
+```bash
+aws secretsmanager create-secret \
+  --name "production/heezy/github/runner-token" \
+  --secret-string '{"token": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}' \
+  --region us-east-2
+```
+
+### Runner AWS Credentials
+```bash
+aws secretsmanager create-secret \
+  --name "production/heezy/github_runner/aws_credentials" \
+  --secret-string '{"AWS_ACCESS_KEY_ID": "AKIA...", "AWS_SECRET_ACCESS_KEY": "xxx..."}' \
+  --region us-east-2
 ```
 
 ## Monitoring

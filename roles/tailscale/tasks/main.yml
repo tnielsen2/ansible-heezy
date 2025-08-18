@@ -34,11 +34,18 @@
         state: present
   when: ansible_os_family == "RedHat"
 
-- name: Start and enable Tailscale
+- name: Install Tailscale (Windows)
+  win_chocolatey:
+    name: tailscale
+    state: present
+  when: ansible_os_family == "Windows"
+
+- name: Start and enable Tailscale (Linux)
   systemd:
     name: tailscaled
     state: started
     enabled: yes
+  when: ansible_os_family != "Windows"
 
 - name: Get Tailscale OAuth credentials from AWS Secrets Manager
   set_fact:
@@ -77,8 +84,14 @@
     tailscale_auth_key: "{{ auth_key_response.json.key }}"
   when: auth_key_response is defined
 
-- name: Connect to Tailscale
+- name: Connect to Tailscale (Linux)
   command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
   register: tailscale_result
   changed_when: "'Success' in tailscale_result.stdout"
-  when: tailscale_auth_key is defined
+  when: tailscale_auth_key is defined and ansible_os_family != "Windows"
+
+- name: Connect to Tailscale (Windows)
+  win_command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
+  register: tailscale_result_win
+  changed_when: "'Success' in tailscale_result_win.stdout"
+  when: tailscale_auth_key is defined and ansible_os_family == "Windows"

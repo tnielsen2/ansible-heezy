@@ -15,6 +15,7 @@ on:
           - baseline
           - prometheus
           - github-runner
+          - tailscale
           - custom-role
         default: baseline
       custom_role:

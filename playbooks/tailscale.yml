@@ -1,0 +1,6 @@
+---
+- name: Configure Tailscale
+  hosts: all
+  become: yes
+  roles:
+    - tailscale
