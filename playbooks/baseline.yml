@@ -4,5 +4,10 @@
   become: yes
   roles:
     - baseline
-    - prometheus-node-exporter
     - tailscale
+
+- name: Linux Node Exporter Setup
+  hosts: linux
+  become: yes
+  roles:
+    - prometheus-node-exporter

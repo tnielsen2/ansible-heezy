@@ -15,6 +15,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: ansible-deployment
+  cancel-in-progress: false
+
 jobs:
   get-runner-credentials:
     runs-on: ubuntu-latest
@@ -61,38 +65,22 @@ jobs:
               - 'roles/github-runner/**'
               - 'playbooks/github-runner.yml'
 
-  baseline:
+  deploy:
     needs: [get-runner-credentials, detect-changes]
-    if: needs.detect-changes.outputs.baseline == 'true'
     runs-on: self-hosted
     timeout-minutes: 60
+    strategy:
+      matrix:
+        playbook: [
+          { name: "baseline", condition: "${{ needs.detect-changes.outputs.baseline == 'true' }}" },
+          { name: "prometheus", condition: "${{ needs.detect-changes.outputs.prometheus == 'true' }}" },
+          { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' }}" }
+        ]
+      fail-fast: false
+    if: ${{ matrix.playbook.condition }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run baseline playbook
+      - name: Run ${{ matrix.playbook.name }} playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
-
-  prometheus:
-    needs: [get-runner-credentials, detect-changes]
-    if: needs.detect-changes.outputs.prometheus == 'true'
-    runs-on: self-hosted
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run prometheus playbook
-        run: |
-          chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
-
-  github-runner:
-    needs: [get-runner-credentials, detect-changes]
-    if: needs.detect-changes.outputs.github-runner == 'true'
-    runs-on: self-hosted
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run github-runner playbook
-        run: |
-          chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh github-runner inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

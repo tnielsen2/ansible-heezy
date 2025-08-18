@@ -19,7 +19,7 @@ testvm
 minecraft
 
 [windows]
-192.168.1.32 hostname=windows-vm
+# 192.168.1.32 hostname=windows-vm
 
 [all:vars]
 ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}
