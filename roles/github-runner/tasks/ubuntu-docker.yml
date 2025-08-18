@@ -25,13 +25,23 @@
           - docker-compose-plugin
         state: present
         update_cache: yes
-    - name: Add user to docker group
-      user:
-        name: "{{ github_runner_user }}"
-        groups: docker
-        append: yes
   when: docker_check.rc != 0
 
-- name: Reset ssh connection to allow user changes to affect ansible user
-  meta: reset_connection
-  when: docker_check.rc != 0
+- name: Check if user is in docker group
+  command: groups {{ github_runner_user }}
+  register: user_groups
+  changed_when: false
+
+- name: Add user to docker group
+  user:
+    name: "{{ github_runner_user }}"
+    groups: docker
+    append: yes
+  when: "'docker' not in user_groups.stdout"
+
+- name: Refresh docker group membership
+  shell: newgrp docker
+  become: yes
+  become_user: "{{ github_runner_user }}"
+  when: "'docker' not in user_groups.stdout"
+  ignore_errors: yes
