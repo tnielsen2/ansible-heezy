@@ -77,10 +77,14 @@ jobs:
           { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' }}" }
         ]
       fail-fast: false
-    if: ${{ matrix.playbook.condition }}
+    if: |
+      needs.detect-changes.outputs.baseline == 'true' ||
+      needs.detect-changes.outputs.prometheus == 'true' ||
+      needs.detect-changes.outputs.github-runner == 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Run ${{ matrix.playbook.name }} playbook
+        if: ${{ matrix.playbook.condition }}
         run: |
           chmod +x .github/scripts/run-ansible.sh
           .github/scripts/run-ansible.sh ${{ matrix.playbook.name }} inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
