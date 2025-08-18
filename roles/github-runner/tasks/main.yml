@@ -24,6 +24,12 @@
       - apt-transport-https
     state: present
 
+- name: Check if AWS CLI is installed
+  command: which aws
+  register: aws_cli_check
+  failed_when: false
+  changed_when: false
+
 - name: Install AWS CLI
   block:
     - name: Download AWS CLI
@@ -39,6 +45,13 @@
       command: /tmp/aws/install
       args:
         creates: /usr/local/bin/aws
+  when: aws_cli_check.rc != 0
+
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  failed_when: false
+  changed_when: false
 
 - name: Install Docker
   block:
@@ -60,6 +73,7 @@
           - docker-compose-plugin
         state: present
         update_cache: yes
+  when: docker_check.rc != 0
 
 - name: Check if GitHub CLI is installed
   command: which gh
@@ -132,29 +146,29 @@
     dest: "/tmp/actions-runner.tar.gz"
   when: not runner_archive.stat.exists
 
-- name: Check if terraform runner is extracted
+- name: Check if terraform runner directory exists
   stat:
-    path: ~/actions-runner-terraform/config.sh
-  register: terraform_runner_extracted
+    path: ~/actions-runner-terraform
+  register: terraform_runner_dir
 
 - name: Extract GitHub Actions runner for terraform repo
   unarchive:
     src: "/tmp/actions-runner.tar.gz"
     dest: ~/actions-runner-terraform
     remote_src: yes
-  when: not terraform_runner_extracted.stat.exists
+    when: not terraform_runner_dir.stat.exists or terraform_runner_dir.stat.size == 0
 
-- name: Check if ansible runner is extracted
+- name: Check if ansible runner directory exists
   stat:
     path: ~/actions-runner-ansible/config.sh
-  register: ansible_runner_extracted
+  register: ansible_runner_dir
 
 - name: Extract GitHub Actions runner for ansible repo
   unarchive:
     src: "/tmp/actions-runner.tar.gz"
     dest: ~/actions-runner-ansible
     remote_src: yes
-  when: not ansible_runner_extracted.stat.exists
+  when: not ansible_runner_dir.stat.exists or ansible_runner_dir.stat.size == 0
 
 - name: Configure terraform-heezy runner
   command: >
@@ -165,7 +179,7 @@
     --unattended
   args:
     chdir: ~/actions-runner-terraform
-  become: yes
+  become: no
 
 - name: Configure ansible-heezy runner
   command: >
@@ -176,7 +190,7 @@
     --unattended
   args:
     chdir: ~/actions-runner-ansible
-  become: yes
+  become: no
 
 - name: Install terraform runner service
   command: ./svc.sh install
