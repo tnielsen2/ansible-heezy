@@ -132,7 +132,33 @@
   args:
     chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
 
+- name: Start terraform runner service
+  command: ./svc.sh start
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+
 - name: Start ansible runner service
   command: ./svc.sh start
   args:
     chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
+
+- name: Restart runner services to apply docker group membership
+  block:
+    - name: Stop terraform runner service
+      command: ./svc.sh stop
+      args:
+        chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+      ignore_errors: yes
+    - name: Stop ansible runner service
+      command: ./svc.sh stop
+      args:
+        chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
+      ignore_errors: yes
+    - name: Start terraform runner service
+      command: ./svc.sh start
+      args:
+        chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    - name: Start ansible runner service
+      command: ./svc.sh start
+      args:
+        chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
