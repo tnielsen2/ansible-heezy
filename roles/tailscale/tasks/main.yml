@@ -50,7 +50,7 @@
 - name: Get Tailscale OAuth credentials from AWS Secrets Manager
   set_fact:
     tailscale_oauth: "{{ lookup('aws_secret', 'production/heezy/tailscale', region='us-east-2') | from_json }}"
-  when: tailscale_auth_key is not defined and environment == 'prod'
+  when: tailscale_auth_key is not defined and environment is defined and environment == 'prod'
 
 - name: Get OAuth access token
   uri:
@@ -77,12 +77,12 @@
             ephemeral: false
       expirySeconds: 3600
   register: auth_key_response
-  when: oauth_response is defined
+  when: oauth_response is defined and oauth_response.content is defined
 
 - name: Set generated auth key
   set_fact:
     tailscale_auth_key: "{{ (auth_key_response.content | from_json).key }}"
-  when: auth_key_response is defined
+  when: auth_key_response is defined and auth_key_response.content is defined
 
 - name: Connect to Tailscale (Linux)
   command: tailscale up --authkey={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
