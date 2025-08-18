@@ -32,10 +32,11 @@
     state: present
   when: aws_cli_check_win.rc != 0
 
-- name: Install Docker Desktop
-  win_chocolatey:
-    name: docker-desktop
-    state: present
+# Skip Docker Desktop - not compatible with Windows Server
+# - name: Install Docker Desktop
+#   win_chocolatey:
+#     name: docker-desktop
+#     state: present
 
 - name: Disable Windows Server Manager auto-start
   win_regedit:
