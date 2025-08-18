@@ -1,0 +1,138 @@
+---
+- name: Check if GitHub CLI is installed
+  command: which gh
+  register: gh_check
+  failed_when: false
+  changed_when: false
+
+- name: Install GitHub CLI
+  block:
+    - name: Add GitHub CLI GPG key
+      apt_key:
+        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+        keyring: /usr/share/keyrings/githubcli-archive-keyring.gpg
+        state: present
+    - name: Add GitHub CLI repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+        state: present
+    - name: Install GitHub CLI
+      apt:
+        name: gh
+        state: present
+        update_cache: yes
+  when: gh_check.rc != 0
+
+- name: Create actions-runner directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+  loop:
+    - "/home/{{ github_runner_user }}/actions-runner-terraform"
+    - "/home/{{ github_runner_user }}/actions-runner-ansible"
+
+- name: Check if GitHub Actions runner is downloaded
+  stat:
+    path: /tmp/actions-runner.tar.gz
+  register: runner_archive
+
+- name: Download GitHub Actions runner
+  get_url:
+    url: "https://github.com/actions/runner/releases/download/v{{ github_runner_version }}/actions-runner-linux-x64-{{ github_runner_version }}.tar.gz"
+    dest: "/tmp/actions-runner.tar.gz"
+  when: not runner_archive.stat.exists
+
+- name: Check if terraform runner is configured
+  stat:
+    path: "/home/{{ github_runner_user }}/actions-runner-terraform/.runner"
+  register: terraform_runner_configured
+
+- name: Extract GitHub Actions runner for terraform repo
+  unarchive:
+    src: "/tmp/actions-runner.tar.gz"
+    dest: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    remote_src: yes
+  when: not terraform_runner_configured.stat.exists
+
+- name: Check if ansible runner is configured
+  stat:
+    path: "/home/{{ github_runner_user }}/actions-runner-ansible/.runner"
+  register: ansible_runner_configured
+
+- name: Extract GitHub Actions runner for ansible repo
+  unarchive:
+    src: "/tmp/actions-runner.tar.gz"
+    dest: "/home/{{ github_runner_user }}/actions-runner-ansible"
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    remote_src: yes
+  when: not ansible_runner_configured.stat.exists
+
+- name: Set permissions on terraform runner directory
+  file:
+    path: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: '0755'
+    recurse: yes
+  when: not terraform_runner_configured.stat.exists
+
+- name: Set permissions on ansible runner directory
+  file:
+    path: "/home/{{ github_runner_user }}/actions-runner-ansible"
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: '0755'
+    recurse: yes
+  when: not ansible_runner_configured.stat.exists
+
+- name: Configure terraform-heezy runner
+  command: >
+    ./config.sh --url https://github.com/{{ terraform_repo }}
+    --token {{ terraform_registration.json.token }}
+    --name heezy-terraform-runner
+    --labels self-hosted,linux,x64,terraform
+    --unattended
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+  become: yes
+  become_user: "{{ github_runner_user }}"
+  when: not terraform_runner_configured.stat.exists
+
+- name: Configure ansible-heezy runner
+  command: >
+    ./config.sh --url https://github.com/{{ ansible_repo }}
+    --token {{ ansible_registration.json.token }}
+    --name heezy-ansible-runner
+    --labels self-hosted,linux,x64,ansible
+    --unattended
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
+  become: yes
+  become_user: "{{ github_runner_user }}"
+  when: not ansible_runner_configured.stat.exists
+
+- name: Install terraform runner service
+  command: ./svc.sh install
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+
+- name: Install ansible runner service
+  command: ./svc.sh install
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
+
+- name: Start terraform runner service
+  command: ./svc.sh start
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+
+- name: Start ansible runner service
+  command: ./svc.sh start
+  args:
+    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"

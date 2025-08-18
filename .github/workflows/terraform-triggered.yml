@@ -1,10 +1,10 @@
-name: Terraform Triggered Provisioning
+name: Infrastructure Provisioning
 
 on:
   workflow_dispatch:
     inputs:
       target_hosts:
-        description: 'Target host IP addresses (comma-separated)'
+        description: 'Target hosts (comma-separated IPs or inventory group)'
         required: true
         type: string
       playbook:
@@ -15,7 +15,7 @@ on:
           - baseline
           - prometheus
           - github-runner
-          - infrastructure
+          - tailscale
           - custom-role
         default: baseline
       custom_role:
@@ -31,14 +31,17 @@ on:
         required: true
         type: choice
         options:
-          - dev
-          - staging
           - prod
-        default: dev
+        default: prod
       tailscale_auth_key:
-        description: 'Tailscale auth key'
+        description: 'Tailscale auth key (optional)'
         required: false
         type: string
+      use_inventory:
+        description: 'Use existing inventory instead of dynamic hosts'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -74,20 +77,33 @@ jobs:
       
 
         
-      - name: Create dynamic inventory
+      - name: Determine inventory
+        id: inventory
         run: |
-          mkdir -p inventory
-          echo "[all]" > inventory/dynamic_hosts
-          IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
-          for host in "${HOSTS[@]}"; do
-            echo "$host" >> inventory/dynamic_hosts
-          done
-          echo "" >> inventory/dynamic_hosts
-          echo "[all:vars]" >> inventory/dynamic_hosts
-          echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> inventory/dynamic_hosts
-          echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> inventory/dynamic_hosts
+          if [ "${{ github.event.inputs.use_inventory }}" = "true" ]; then
+            echo "inventory=inventory/hosts.heezy" >> $GITHUB_OUTPUT
+          else
+            mkdir -p inventory
+            echo "[all]" > inventory/dynamic_hosts
+            IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
+            for host in "${HOSTS[@]}"; do
+              echo "$host" >> inventory/dynamic_hosts
+            done
+            echo "" >> inventory/dynamic_hosts
+            echo "[all:vars]" >> inventory/dynamic_hosts
+            echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> inventory/dynamic_hosts
+            echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> inventory/dynamic_hosts
+            echo "inventory=inventory/dynamic_hosts" >> $GITHUB_OUTPUT
+          fi
           
       - name: Run Ansible playbook
         run: |
           chmod +x .github/scripts/run-ansible.sh
-          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} inventory/dynamic_hosts "TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
+          EXTRA_VARS=""
+          if [ "${{ github.event.inputs.playbook }}" = "custom-role" ]; then
+            EXTRA_VARS="CUSTOM_ROLE=${{ github.event.inputs.custom_role }}"
+          fi
+          if [ -n "${{ github.event.inputs.tailscale_auth_key }}" ]; then
+            EXTRA_VARS="${EXTRA_VARS} TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}"
+          fi
+          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} ${{ steps.inventory.outputs.inventory }} "$EXTRA_VARS" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

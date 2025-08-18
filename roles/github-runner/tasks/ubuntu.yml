@@ -1,0 +1,32 @@
+---
+- name: Update package cache
+  apt:
+    update_cache: yes
+
+- name: Install required packages
+  apt:
+    name:
+      - curl
+      - wget
+      - unzip
+      - jq
+      - git
+      - gpg
+      - lsb-release
+      - ca-certificates
+      - gnupg
+      - software-properties-common
+      - apt-transport-https
+    state: present
+
+- name: Install AWS CLI
+  include_tasks: ubuntu-aws-cli.yml
+
+- name: Install Docker
+  include_tasks: ubuntu-docker.yml
+
+- name: Install Terraform
+  include_tasks: ubuntu-terraform.yml
+
+- name: Install GitHub CLI and runners
+  include_tasks: ubuntu-github.yml

@@ -1,0 +1,14 @@
+---
+# Default user for GitHub runner installation
+github_runner_user: trent
+
+# GitHub runner version
+github_runner_version: "2.327.1"
+
+# AWS Secrets Manager configuration
+aws_region: us-east-2
+github_token_secret: "all/heezy/github/runner/personal-access-token"
+
+# Repository configuration
+terraform_repo: "tnielsen2/terraform-heezy"
+ansible_repo: "tnielsen2/ansible-heezy"
