@@ -186,6 +186,20 @@ gh workflow run terraform-triggered.yml \
 - **Windows exporter**: Port 9182 on Windows hosts
 - **Minecraft server**: Port 19132/udp (Bedrock protocol)
 
+### Accessing Prometheus Web UI
+
+```bash
+# Direct access (if on same network)
+http://192.168.1.19:9090
+
+# Via Tailscale (after connecting hosts to VPN)
+http://management:9090
+
+# SSH tunnel for secure access
+ssh -L 9090:localhost:9090 trent@192.168.1.19
+# Then access: http://localhost:9090
+```
+
 ## Network
 
 - **Tailscale VPN**: Connects all hosts to private mesh network

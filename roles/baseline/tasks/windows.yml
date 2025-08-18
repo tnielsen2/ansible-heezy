@@ -63,13 +63,37 @@
     name: tailscale
     state: present
 
+- name: Enable RDP
+  win_regedit:
+    path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+
+- name: Enable RDP firewall rule
+  win_firewall_rule:
+    name: Remote Desktop
+    enabled: yes
+    state: present
+    protocol: tcp
+    localport: 3389
+    action: allow
+    direction: in
+
+- name: Add Administrator to Remote Desktop Users group
+  win_group_membership:
+    name: Remote Desktop Users
+    members:
+      - Administrator
+    state: present
+
 - name: Download and install Prometheus Windows Exporter
   block:
     - name: Download Windows Exporter
       win_get_url:
         url: "https://github.com/prometheus-community/windows_exporter/releases/download/v0.24.0/windows_exporter-0.24.0-amd64.msi"
-        dest: "C:\temp\windows_exporter.msi"
+        dest: "C:\\temp\\windows_exporter.msi"
     - name: Install Windows Exporter
       win_package:
-        path: "C:\temp\windows_exporter.msi"
+        path: "C:\\temp\\windows_exporter.msi"
         state: present

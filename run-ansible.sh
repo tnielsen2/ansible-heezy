@@ -20,6 +20,7 @@ OPTIONS:
     -r, --region REGION    AWS region (default: us-east-2)
     -a, --account ACCOUNT  AWS account number (required)
     -i, --inventory FILE   Inventory file (default: inventory/hosts.heezy)
+    -l, --limit HOSTS      Limit to specific hosts or groups
 
 EXAMPLES:
     $0 -a 123456789012 baseline
@@ -53,6 +54,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -i|--inventory)
             INVENTORY="$2"
+            shift 2
+            ;;
+        -l|--limit)
+            LIMIT_HOSTS="$2"
             shift 2
             ;;
         -*)
@@ -143,8 +148,10 @@ docker run --rm --network host \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SESSION_TOKEN \
+    -e ANSIBLE_DEBUG=0 \
     "$FULL_IMAGE_NAME" \
     -i "$INVENTORY" \
+    ${LIMIT_HOSTS:+--limit "$LIMIT_HOSTS"} \
     "playbooks/${PLAYBOOK}.yml" \
     $ANSIBLE_ARGS
 

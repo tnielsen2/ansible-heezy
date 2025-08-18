@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
     sshpass \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install ansible boto3 botocore
+RUN pip install ansible boto3 botocore pywinrm requests requests-ntlm
 
 WORKDIR /ansible
 

@@ -8,7 +8,6 @@
 - name: Create docker-compose file
   copy:
     content: |
-      version: '3.8'
       services:
         minecraft:
           image: itzg/minecraft-bedrock-server:latest
