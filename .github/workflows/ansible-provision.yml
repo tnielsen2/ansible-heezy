@@ -31,43 +31,44 @@ on:
         options:
           - minecraft-server
           - web-server
-          - game-server
-          - tailscale
-          - prometheus-node-exporter
 
       environment:
         description: 'Environment'
         required: true
         type: choice
         options:
-          - dev
-          - staging
           - prod
-        default: dev
+        default: prod
 
 jobs:
-  provision:
-    runs-on: self-hosted
-    permissions:
-      id-token: write
-      contents: read
+  get-runner-credentials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
+      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
     steps:
-      - uses: actions/checkout@v4
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
           aws-region: us-east-2
+
+      - name: Get runner credentials from AWS Secrets
+        id: get-creds
+        run: |
+          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
+          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
+          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+
+  provision:
+    needs: get-runner-credentials
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
       
-      - name: Login to ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      
-      - name: Pull Ansible container from ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: docker pull $ECR_REGISTRY/ansible-automation:latest
+
       
       - name: Create inventory
         run: |
@@ -88,42 +89,18 @@ jobs:
       
       - name: Run VM Bootstrap
         if: inputs.playbook == 'vm-bootstrap'
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            -e AWS_DEFAULT_REGION=us-east-2 \
-            $ECR_REGISTRY/ansible-automation:latest \
-            -i inventory/hosts \
-            playbooks/linux-setup.yml playbooks/windows-setup.yml \
-            --extra-vars "target_hosts=${{ inputs.target_hosts }} environment=${{ inputs.environment }}"
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh linux-setup inventory/hosts "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
       
       - name: Run Custom Role
         if: inputs.playbook == 'custom-role'
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            -e AWS_DEFAULT_REGION=us-east-2 \
-            $ECR_REGISTRY/ansible-automation:latest \
-            -i inventory/hosts \
-            playbooks/custom-role.yml \
-            --extra-vars "target_hosts=${{ inputs.target_hosts }} custom_role=${{ inputs.custom_role }} environment=${{ inputs.environment }}"
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh custom-role inventory/hosts "CUSTOM_ROLE=${{ inputs.custom_role }}" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
       
       - name: Run Infrastructure Setup
         if: inputs.playbook == 'infrastructure'
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            -e AWS_DEFAULT_REGION=us-east-2 \
-            $ECR_REGISTRY/ansible-automation:latest \
-            -i inventory/hosts \
-            playbooks/infrastructure.yml \
-            --extra-vars "target_hosts=${{ inputs.target_hosts }} environment=${{ inputs.environment }}"
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh infrastructure inventory/hosts "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

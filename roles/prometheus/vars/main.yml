@@ -1,0 +1,6 @@
+---
+prometheus_version: latest
+prometheus_port: 9090
+prometheus_retention: 30d
+prometheus_data_path: /opt/prometheus/data
+prometheus_config_path: /opt/prometheus/config

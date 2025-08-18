@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  prometheus:
+    image: prom/prometheus:{{ prometheus_version }}
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.listen-address=0.0.0.0:{{ prometheus_port }}'
+      - '--storage.tsdb.retention.time={{ prometheus_retention }}'
+    ports:
+      - "{{ prometheus_port }}:{{ prometheus_port }}"
+    volumes:
+      - ./config:/etc/prometheus
+      - ./data:/prometheus
+    restart: unless-stopped

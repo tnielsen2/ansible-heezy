@@ -1,10 +1,6 @@
 ---
-- name: reload systemd
-  systemd:
-    daemon_reload: yes
-
-- name: start minecraft
-  systemd:
-    name: minecraft
-    state: started
-    enabled: yes
+- name: restart minecraft
+  docker_compose:
+    project_src: /opt/minecraft
+    state: present
+    restarted: yes

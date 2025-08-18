@@ -1,61 +1,41 @@
 ---
-- name: Install Java 17
-  apt:
-    name: openjdk-17-jdk
-    state: present
-
-- name: Create minecraft user
-  user:
-    name: minecraft
-    system: yes
-    shell: /bin/bash
-    home: /opt/minecraft
-
 - name: Create minecraft directory
   file:
     path: /opt/minecraft
     state: directory
-    owner: minecraft
-    group: minecraft
     mode: '0755'
 
-- name: Download Minecraft server
-  get_url:
-    url: https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar
-    dest: /opt/minecraft/server.jar
-    owner: minecraft
-    group: minecraft
-    mode: '0644'
-
-- name: Accept EULA
-  copy:
-    content: "eula=true"
-    dest: /opt/minecraft/eula.txt
-    owner: minecraft
-    group: minecraft
-
-- name: Create systemd service
+- name: Create docker-compose file
   copy:
     content: |
-      [Unit]
-      Description=Minecraft Server
-      After=network.target
+      version: '3.8'
+      services:
+        minecraft:
+          image: itzg/minecraft-bedrock-server:latest
+          container_name: minecraft-bedrock
+          environment:
+            EULA: "TRUE"
+            GAMEMODE: survival
+            DIFFICULTY: easy
+            SERVER_NAME: "Heezy Bedrock Server"
+            MAX_PLAYERS: 10
+            ALLOW_CHEATS: "false"
+            ONLINE_MODE: "true"
+          ports:
+            - "19132:19132/udp"
+          volumes:
+            - ./data:/data
+          restart: unless-stopped
+    dest: /opt/minecraft/docker-compose.yml
+    mode: '0644'
 
-      [Service]
-      Type=simple
-      User=minecraft
-      WorkingDirectory=/opt/minecraft
-      ExecStart=/usr/bin/java -Xmx2G -Xms1G -jar server.jar nogui
-      Restart=always
+- name: Start Minecraft Bedrock server
+  docker_compose:
+    project_src: /opt/minecraft
+    state: present
 
-      [Install]
-      WantedBy=multi-user.target
-    dest: /etc/systemd/system/minecraft.service
-  notify:
-    - reload systemd
-    - start minecraft
-
-- name: Open firewall for Minecraft
+- name: Open firewall for Minecraft Bedrock
   ufw:
     rule: allow
-    port: '25565'
+    port: '19132'
+    proto: udp

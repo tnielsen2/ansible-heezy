@@ -1,5 +1,6 @@
 ---
 - name: restart prometheus
-  systemd:
-    name: prometheus
-    state: restarted
+  docker_compose:
+    project_src: /opt/prometheus
+    state: present
+    restarted: yes

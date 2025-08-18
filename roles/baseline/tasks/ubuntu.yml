@@ -20,6 +20,7 @@
       - git
       - htop
       - tree
+      - jq
     state: present
   when: ansible_os_family == "Debian"
 

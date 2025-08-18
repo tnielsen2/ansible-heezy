@@ -18,56 +18,46 @@ on:
         default: baseline
 
 jobs:
-  baseline:
-    if: github.event.schedule == '0 3 * * 0' || github.event.inputs.playbook == 'baseline'
+  get-runner-credentials:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
+      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
     steps:
-      - uses: actions/checkout@v4
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - name: Setup SSH key
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+
+      - name: Get runner credentials from AWS Secrets
+        id: get-creds
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-      - name: Build Ansible container
-        run: docker build -t ansible-automation .
+          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
+          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
+          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+
+  baseline:
+    if: github.event.schedule == '0 3 * * 0' || github.event.inputs.playbook == 'baseline'
+    needs: get-runner-credentials
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
       - name: Run baseline playbook
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            ansible-automation \
-            -i inventory/hosts.heezy \
-            playbooks/baseline.yml
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh baseline inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
 
   prometheus:
     if: github.event.schedule == '0 3 * * 6' || github.event.inputs.playbook == 'prometheus'
-    runs-on: ubuntu-latest
+    needs: get-runner-credentials
+    runs-on: self-hosted
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-      - name: Build Ansible container
-        run: docker build -t ansible-automation .
       - name: Run prometheus playbook
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            ansible-automation \
-            -i inventory/hosts.heezy \
-            playbooks/prometheus.yml
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh prometheus inventory/hosts.heezy "" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}

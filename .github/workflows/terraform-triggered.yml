@@ -25,7 +25,6 @@ on:
         options:
           - minecraft-server
           - web-server
-          - game-server
         default: minecraft-server
       environment:
         description: 'Environment'
@@ -42,26 +41,34 @@ on:
         type: string
 
 jobs:
-  provision:
+  get-runner-credentials:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      runner-access-key: ${{ steps.get-creds.outputs.access-key }}
+      runner-secret-key: ${{ steps.get-creds.outputs.secret-key }}
     steps:
-      - uses: actions/checkout@v4
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-          
-      - name: Setup SSH key
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+
+      - name: Get runner credentials from AWS Secrets
+        id: get-creds
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-      - name: Build Ansible container
-        run: docker build -t ansible-automation .
+          CREDS=$(aws secretsmanager get-secret-value --secret-id production/heezy/github_runner/aws_credentials --query SecretString --output text)
+          echo "access-key=$(echo $CREDS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_OUTPUT
+          echo "secret-key=$(echo $CREDS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_OUTPUT
+
+  provision:
+    needs: get-runner-credentials
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      
+
         
       - name: Create dynamic inventory
         run: |
@@ -69,16 +76,14 @@ jobs:
           echo "[all]" > inventory/dynamic_hosts
           IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
           for host in "${HOSTS[@]}"; do
-            echo "$host ansible_user=ubuntu ansible_ssh_private_key_file=/ansible/keys/id_rsa" >> inventory/dynamic_hosts
+            echo "$host" >> inventory/dynamic_hosts
           done
+          echo "" >> inventory/dynamic_hosts
+          echo "[all:vars]" >> inventory/dynamic_hosts
+          echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> inventory/dynamic_hosts
+          echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> inventory/dynamic_hosts
           
       - name: Run Ansible playbook
         run: |
-          docker run --rm --network host \
-            -v $PWD:/ansible \
-            -v ~/.ssh:/ansible/keys:ro \
-            -e TAILSCALE_AUTH_KEY="${{ github.event.inputs.tailscale_auth_key }}" \
-            -e ENVIRONMENT="${{ github.event.inputs.environment }}" \
-            ansible-automation \
-            -i inventory/dynamic_hosts \
-            playbooks/${{ github.event.inputs.playbook }}.yml
+          chmod +x .github/scripts/run-ansible.sh
+          .github/scripts/run-ansible.sh ${{ github.event.inputs.playbook }} inventory/dynamic_hosts "TAILSCALE_AUTH_KEY=${{ github.event.inputs.tailscale_auth_key }}" ${{ needs.get-runner-credentials.outputs.runner-access-key }} ${{ needs.get-runner-credentials.outputs.runner-secret-key }} ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}
