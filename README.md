@@ -165,6 +165,17 @@ aws secretsmanager create-secret \
   --region us-east-2
 ```
 
+## AWS Authentication Flow
+
+The workflows use a multi-step authentication pattern:
+
+1. **OIDC runner** gets static runner credentials from AWS Secrets Manager
+2. **Static credentials** are passed to self-hosted runner
+3. **Self-hosted runner** uses static credentials to assume the GitHubActions-MultiRepo role
+4. **Assumed role credentials** are used for ECR access and Ansible execution
+
+This pattern ensures secure credential handling while allowing containerized Ansible execution with proper AWS permissions.
+
 ## Tailscale Setup
 
 ```bash
