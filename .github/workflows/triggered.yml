@@ -74,7 +74,6 @@ jobs:
 
   deploy:
     needs: [setup-aws, detect-changes]
-    if: always() && !cancelled() && !failure()
     runs-on: self-hosted
     timeout-minutes: 60
     strategy:
