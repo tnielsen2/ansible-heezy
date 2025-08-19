@@ -69,7 +69,10 @@ jobs:
     needs: [setup-aws, detect-changes]
     runs-on: self-hosted
     container:
-      image: python:3.13-slim
+      image: ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:latest
+      credentials:
+        username: AWS
+        password: ${{ needs.setup-aws.outputs.ecr-token }}
     timeout-minutes: 60
     strategy:
       matrix:
@@ -85,15 +88,6 @@ jobs:
       needs.detect-changes.outputs.prometheus == 'true' ||
       needs.detect-changes.outputs.github-runner == 'true'
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Ansible and dependencies
-        run: |
-          apt-get update
-          apt-get install -y openssh-client sshpass jq
-          pip install ansible boto3 botocore pywinrm requests requests-ntlm
-          ansible-galaxy collection install -r requirements.yml
-      
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
         env:
@@ -110,7 +104,7 @@ jobs:
           export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
           
           # Run Ansible with assumed role credentials
-          ansible-playbook -i inventory/hosts.heezy playbooks/${{ matrix.playbook.name }}.yml
+          ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
 
   notify:
     if: always()
