@@ -9,6 +9,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: build-ecr
+  cancel-in-progress: true
+
 jobs:
   build:
     uses: ./.github/workflows/_build-ecr.yml
