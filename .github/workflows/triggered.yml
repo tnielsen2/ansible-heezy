@@ -95,7 +95,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          # Assume role using static credentials
+          # Assume role using static runner credentials
           CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
           
           # Export assumed role credentials
