@@ -83,7 +83,7 @@
 
 - name: Install Prometheus Node Exporter
   block:
-- name: Create prometheus user
+    - name: Create prometheus user
       user:
         name: prometheus
         system: yes
