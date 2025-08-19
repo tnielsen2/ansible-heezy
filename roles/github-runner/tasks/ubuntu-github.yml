@@ -108,7 +108,7 @@
   command: >
     ./config.sh --url https://github.com/{{ ansible_repo }}
     --token {{ ansible_registration.json.token }}
-    --name heezy-ansible-runner
+    --name heezy-{{ hostname }}
     --labels self-hosted,linux,x64,ansible
     --unattended
   args:

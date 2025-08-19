@@ -1,4 +1,9 @@
 ---
+- name: Set hostname
+  hostname:
+    name: "{{ hostname }}"
+  when: hostname is defined
+
 - name: Update package cache (Debian/Ubuntu)
   apt:
     update_cache: yes
