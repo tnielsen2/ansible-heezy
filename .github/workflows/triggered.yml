@@ -90,7 +90,13 @@ jobs:
 
   deploy:
     needs: [setup-aws, detect-changes, build-x86]
-    if: always() && !cancelled() && !failure()
+    if: |
+      always() && !cancelled() && !failure() && (
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.baseline == 'true' ||
+        needs.detect-changes.outputs.prometheus == 'true' ||
+        needs.detect-changes.outputs.github-runner == 'true'
+      )
     runs-on: self-hosted
     container:
       image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
@@ -106,11 +112,6 @@ jobs:
           { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'github-runner' }}" }
         ]
       fail-fast: false
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.baseline == 'true' ||
-      needs.detect-changes.outputs.prometheus == 'true' ||
-      needs.detect-changes.outputs.github-runner == 'true'
     steps:
       - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
