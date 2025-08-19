@@ -46,9 +46,10 @@ jobs:
       - name: Send Discord notification
         if: steps.webhook.outputs.url != ''
         uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ steps.webhook.outputs.url }}
         with:
-          webhook: ${{ steps.webhook.outputs.url }}
-          message: |
+          args: |
             ${{ inputs.status == 'success' && '✅' || '❌' }} **${{ github.event.repository.name }}** - ${{ inputs.workflow-name }} - ${{ github.ref_name }} - ${{ inputs.status == 'success' && 'PASSED' || 'FAILED' }}
             
             Commit: `${{ github.sha }}`
