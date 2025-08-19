@@ -2,7 +2,11 @@ name: Terraform Provisioning
 
 on:
   workflow_dispatch:
-    inputs:
+inputs:
+      target_hosts:
+        description: 'Target hosts (comma-separated IPs or inventory group)'
+        required: true
+        type: string
       playbook:
         description: 'Playbook to execute'
         required: true
@@ -40,7 +44,7 @@ jobs:
         password: ${{ needs.setup-aws.outputs.ecr-token }}
     timeout-minutes: 60
     steps:
-- name: Run playbook
+      - name: Run playbook
         env:
           AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
