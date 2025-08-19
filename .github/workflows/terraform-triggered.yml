@@ -14,17 +14,14 @@ on:
         options:
           - baseline
           - prometheus
-          - github-runner
           - tailscale
-          - custom-role
         default: baseline
       custom_role:
         description: 'Custom role (if playbook is custom-role)'
         required: false
         type: choice
         options:
-          - minecraft-server
-          - web-server
+          - github-runner
         default: minecraft-server
       environment:
         description: 'Environment'
