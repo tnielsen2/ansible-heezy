@@ -65,7 +65,7 @@ jobs:
       
       - name: Build and push x86 image
         run: |
-          docker build --platform linux/amd64 -t 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86 .
+          docker build --no-cache --platform linux/amd64 -t 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86 .
           docker push 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
 
   detect-changes:
@@ -96,7 +96,7 @@ jobs:
   deploy:
     needs: [setup-aws, detect-changes, build-x86]
     if: |
-      always() && !cancelled() && !failure() && (
+      always() && !cancelled() && needs.build-x86.result != 'failure' && (
         github.event_name == 'workflow_dispatch' ||
         needs.detect-changes.outputs.baseline == 'true' ||
         needs.detect-changes.outputs.prometheus == 'true' ||
@@ -125,6 +125,18 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
+          # Debug: Show directory structure
+          echo "=== Current directory ==="
+          pwd
+          echo "=== /ansible contents ==="
+          ls -la /ansible/
+          echo "=== /ansible/roles contents ==="
+          ls -la /ansible/roles/
+          echo "=== ansible.cfg contents ==="
+          cat /ansible/ansible.cfg
+          echo "=== Ansible version ==="
+          ansible --version
+          
           # Assume role using static runner credentials
           CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
           
@@ -134,7 +146,7 @@ jobs:
           export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
           
           # Run Ansible with assumed role credentials
-          ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
+          ANSIBLE_ROLES_PATH=/ansible/roles ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
 
   notify:
     if: always()
