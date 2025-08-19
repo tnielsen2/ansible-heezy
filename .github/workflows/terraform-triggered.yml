@@ -61,9 +61,11 @@ jobs:
           # Create dynamic inventory for target hosts
           mkdir -p /tmp/inventory
           echo "[all]" > /tmp/inventory/dynamic_hosts
-          IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
-          for host in "${HOSTS[@]}"; do
-            echo "$host" >> /tmp/inventory/dynamic_hosts
+          TARGET_HOSTS="${{ github.event.inputs.target_hosts }}"
+          echo "$TARGET_HOSTS" | tr ',' '\n' | while read host; do
+            if [ -n "$host" ]; then
+              echo "$host" >> /tmp/inventory/dynamic_hosts
+            fi
           done
           echo "" >> /tmp/inventory/dynamic_hosts
           echo "[all:vars]" >> /tmp/inventory/dynamic_hosts
