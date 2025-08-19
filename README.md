@@ -211,6 +211,33 @@ ssh -L 9090:localhost:9090 trent@192.168.1.19
 # Then access: http://localhost:9090
 ```
 
+## Container Execution
+
+### Configuration Issues
+The containerized Ansible execution requires explicit environment variables due to GitHub Actions container behavior:
+
+- `ANSIBLE_CONFIG=/ansible/ansible.cfg` - Explicitly sets config file path
+- `ANSIBLE_ROLES_PATH=/ansible/roles` - Ensures roles are found correctly
+- `ANSIBLE_HOST_KEY_CHECKING=False` - Disables SSH host key verification
+
+### Local vs Actions Differences
+- **Local**: Current directory mounted as volume (`-v "$PWD:/ansible"`)
+- **Actions**: Code baked into container image at build time
+- **Config Discovery**: Actions containers don't auto-discover ansible.cfg in working directory
+
+### Troubleshooting
+```bash
+# Debug container environment
+echo "=== Current directory ==="
+pwd
+echo "=== /ansible contents ==="
+ls -la /ansible/
+echo "=== ansible.cfg contents ==="
+cat /ansible/ansible.cfg
+echo "=== Ansible version ==="
+ansible --version
+```
+
 ## Network
 
 - **Tailscale VPN**: Connects all hosts to private mesh network
