@@ -65,39 +65,11 @@ jobs:
               - 'roles/github-runner/**'
               - 'playbooks/github-runner.yml'
 
-  build-local:
+  deploy:
     needs: [setup-aws, detect-changes]
     runs-on: self-hosted
-    outputs:
-      should-deploy: ${{ steps.check.outputs.should-deploy }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check if deployment needed
-        id: check
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" || \
-                "${{ needs.detect-changes.outputs.baseline }}" == "true" || \
-                "${{ needs.detect-changes.outputs.prometheus }}" == "true" || \
-                "${{ needs.detect-changes.outputs.github-runner }}" == "true" ]]; then
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Build Ansible container
-        if: steps.check.outputs.should-deploy == 'true'
-        run: |
-          docker build -t ansible-automation:local .
-
-  deploy:
-    needs: [setup-aws, detect-changes, build-local]
-    if: needs.build-local.outputs.should-deploy == 'true'
-    runs-on: self-hosted
     container:
-      image: ansible-automation:local
-      env:
-        AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
-        AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
-        AWS_DEFAULT_REGION: us-east-2
+      image: python:3.13-slim
     timeout-minutes: 60
     strategy:
       matrix:
@@ -107,9 +79,27 @@ jobs:
           { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'github-runner' }}" }
         ]
       fail-fast: false
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.baseline == 'true' ||
+      needs.detect-changes.outputs.prometheus == 'true' ||
+      needs.detect-changes.outputs.github-runner == 'true'
     steps:
-      - name: Assume AWS role and run playbook
+      - uses: actions/checkout@v4
+      
+      - name: Install Ansible and dependencies
+        run: |
+          apt-get update
+          apt-get install -y openssh-client sshpass jq
+          pip install ansible boto3 botocore pywinrm requests requests-ntlm
+          ansible-galaxy collection install -r requirements.yml
+      
+      - name: Run ${{ matrix.playbook.name }} playbook
         if: ${{ matrix.playbook.condition }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
+          AWS_DEFAULT_REGION: us-east-2
         run: |
           # Assume role using static credentials
           CREDS=$(aws sts assume-role --role-arn arn:aws:iam::${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}:role/GitHubActions-MultiRepo --role-session-name ansible-session)
@@ -120,7 +110,7 @@ jobs:
           export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
           
           # Run Ansible with assumed role credentials
-          ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
+          ansible-playbook -i inventory/hosts.heezy playbooks/${{ matrix.playbook.name }}.yml
 
   notify:
     if: always()
