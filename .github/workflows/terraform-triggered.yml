@@ -65,4 +65,4 @@ jobs:
           fi
           
           # Run Ansible with assumed role credentials
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ github.event.inputs.playbook }}.yml $EXTRA_VARS
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy --limit "${{ github.event.inputs.target_hosts }}" /ansible/playbooks/${{ github.event.inputs.playbook }}.yml $EXTRA_VARS
