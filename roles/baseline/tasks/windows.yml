@@ -98,3 +98,21 @@
       win_package:
         path: "C:\\temp\\windows_exporter.msi"
         state: present
+
+    - name: Configure Windows Firewall
+      win_firewall:
+        state: enabled
+        profiles:
+          - domain
+          - private
+          - public
+
+    - name: Disable unnecessary services
+      win_service:
+        name: "{{ item }}"
+        state: stopped
+        start_mode: disabled
+      loop:
+        - Fax
+        - TapiSrv
+      ignore_errors: yes

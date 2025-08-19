@@ -1,8 +1,0 @@
----
-- name: Execute Custom Role
-  hosts: "{{ target_hosts | default('all') }}"
-  become: yes
-  roles:
-    - tailscale
-    - prometheus-node-exporter
-    - "{{ custom_role }}"
