@@ -58,7 +58,7 @@ jobs:
           export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
           
           # Run Ansible with assumed role credentials
-          ANSIBLE_ROLES_PATH=/ansible/roles ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
 
   notify:
     if: always()
