@@ -52,6 +52,8 @@ jobs:
           args: |
             ${{ inputs.status == 'success' && '✅' || '❌' }} **${{ github.event.repository.name }}** - ${{ inputs.workflow-name }} - ${{ github.ref_name }} - ${{ inputs.status == 'success' && 'PASSED' || 'FAILED' }}
             
-            Commit: `${{ github.sha }}`
-            Author: ${{ github.actor }}
-            [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            **Workflow:** ${{ github.workflow }}
+            **Run:** ${{ github.run_number }}
+            **Commit:** `${{ github.sha }}`
+            **Author:** ${{ github.actor }}
+            [View Run](<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>)
