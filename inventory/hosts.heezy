@@ -1,22 +1,12 @@
 [management]
 192.168.1.19 hostname=management
 
-[testvm]
-192.168.1.28 hostname=testvm1
-
-[minecraft]
-192.168.1.30 hostname=minecraftvm2
-
-[prometheus]
-192.168.1.29 hostname=testvm2
-
-[runner]
-192.168.1.19
+[github-runner]
+192.168.1.32 hostname=github-runner
 
 [linux:children]
 management
-testvm
-minecraft
+github-runner
 
 [windows]
 # 192.168.1.32 hostname=windows-vm
