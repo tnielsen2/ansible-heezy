@@ -2,7 +2,7 @@ name: Terraform Provisioning
 
 on:
   workflow_dispatch:
-inputs:
+    inputs:
       target_hosts:
         description: 'Target hosts (comma-separated IPs or inventory group)'
         required: true
