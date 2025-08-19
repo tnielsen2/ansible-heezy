@@ -50,14 +50,24 @@ jobs:
           
           # Create dynamic inventory for target hosts
           mkdir -p /tmp/inventory
-          echo "[all]" > /tmp/inventory/dynamic_hosts
           TARGET_HOSTS="${{ github.event.inputs.target_hosts }}"
-          echo "$TARGET_HOSTS" | tr ',' '\n' | while read host; do
-            if [ -n "$host" ]; then
-              echo "$host" >> /tmp/inventory/dynamic_hosts
+          PLAYBOOKS="${{ github.event.inputs.playbooks }}"
+          
+          # Start inventory with [all] group
+          echo "[all]" > /tmp/inventory/dynamic_hosts
+          echo "$TARGET_HOSTS" | tr ',' '\n' >> /tmp/inventory/dynamic_hosts
+          echo "" >> /tmp/inventory/dynamic_hosts
+          
+          # Create groups for each playbook (except baseline)
+          echo "$PLAYBOOKS" | tr ',' '\n' | while read playbook; do
+            if [ -n "$playbook" ] && [ "$playbook" != "baseline" ]; then
+              echo "[$playbook]" >> /tmp/inventory/dynamic_hosts
+              echo "$TARGET_HOSTS" | tr ',' '\n' >> /tmp/inventory/dynamic_hosts
+              echo "" >> /tmp/inventory/dynamic_hosts
             fi
           done
-          echo "" >> /tmp/inventory/dynamic_hosts
+          
+          # Add variables
           echo "[all:vars]" >> /tmp/inventory/dynamic_hosts
           echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> /tmp/inventory/dynamic_hosts
           echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
