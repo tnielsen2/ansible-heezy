@@ -7,21 +7,11 @@ on:
         description: 'Target hosts (comma-separated IPs or inventory group)'
         required: true
         type: string
-      playbook:
-        description: 'Playbook to execute'
+      playbooks:
+        description: 'Playbooks to execute (comma-separated, e.g. baseline,github-runner)'
         required: true
-        type: choice
-        options:
-          - baseline
-          - prometheus
-          - tailscale
+        type: string
         default: baseline
-      custom_role:
-        description: 'Custom role (if playbook is custom-role)'
-        required: false
-        type: choice
-        options:
-          - github-runner
 
 permissions:
   id-token: write
@@ -73,11 +63,11 @@ jobs:
           echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
           echo "ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
           
-          # Set extra vars
-          EXTRA_VARS=""
-          if [ "${{ github.event.inputs.playbook }}" = "custom-role" ] && [ -n "${{ github.event.inputs.custom_role }}" ]; then
-            EXTRA_VARS="--extra-vars custom_role=${{ github.event.inputs.custom_role }}"
-          fi
-          
-          # Run Ansible with assumed role credentials
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts /ansible/playbooks/${{ github.event.inputs.playbook }}.yml $EXTRA_VARS
+          # Run playbooks in sequence
+          PLAYBOOKS="${{ github.event.inputs.playbooks }}"
+          echo "$PLAYBOOKS" | tr ',' '\n' | while read playbook; do
+            if [ -n "$playbook" ]; then
+              echo "Running playbook: $playbook"
+              ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts /ansible/playbooks/$playbook.yml
+            fi
+          done
