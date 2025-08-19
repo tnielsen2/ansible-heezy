@@ -1,0 +1,17 @@
+---
+- name: Download windows_exporter
+  win_get_url:
+    url: "https://github.com/prometheus-community/windows_exporter/releases/download/v0.25.1/windows_exporter-0.25.1-amd64.msi"
+    dest: "C:\\temp\\windows_exporter.msi"
+
+- name: Install windows_exporter
+  win_package:
+    path: "C:\\temp\\windows_exporter.msi"
+    state: present
+    arguments: "/quiet"
+
+- name: Start and enable windows_exporter service
+  win_service:
+    name: windows_exporter
+    state: started
+    start_mode: auto

@@ -95,7 +95,7 @@
   command: >
     ./config.sh --url https://github.com/{{ terraform_repo }}
     --token {{ terraform_registration.json.token }}
-    --name heezy-terraform-runner
+    --name heezy-{{ hostname }}-terraform
     --labels self-hosted,linux,x64,terraform
     --unattended
   args:
@@ -108,7 +108,7 @@
   command: >
     ./config.sh --url https://github.com/{{ ansible_repo }}
     --token {{ ansible_registration.json.token }}
-    --name heezy-{{ hostname }}
+    --name heezy-{{ hostname }}-ansible
     --labels self-hosted,linux,x64,ansible
     --unattended
   args:

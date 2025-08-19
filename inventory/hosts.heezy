@@ -1,6 +1,9 @@
 [management]
 192.168.1.19 hostname=management
 
+[dns]
+# 192.168.1.19 hostname=management
+
 [github-runner]
 192.168.1.32 hostname=github-runner
 
@@ -15,6 +18,8 @@ github-runner
 ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}
 ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
 ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
+# dns_server=192.168.1.19
+# dns_domain=heezy.local
 
 [windows:vars]
 ansible_connection=winrm

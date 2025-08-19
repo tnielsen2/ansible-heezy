@@ -1,0 +1,32 @@
+---
+- name: Install dnsmasq
+  package:
+    name: dnsmasq
+    state: present
+
+- name: Configure dnsmasq
+  template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.conf
+    backup: yes
+  notify: restart dnsmasq
+
+- name: Create hosts directory
+  file:
+    path: /etc/dnsmasq.d
+    state: directory
+
+- name: Start and enable dnsmasq
+  systemd:
+    name: dnsmasq
+    state: started
+    enabled: yes
+
+- name: Configure firewall for DNS
+  ufw:
+    rule: allow
+    port: "53"
+    proto: "{{ item }}"
+  loop:
+    - tcp
+    - udp

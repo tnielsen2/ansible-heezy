@@ -1,0 +1,30 @@
+# DNS-only configuration (DHCP handled by Fortinet)
+port=53
+domain-needed
+bogus-priv
+no-resolv
+no-poll
+
+# Local domain
+domain={{ dns_domain | default('lab.local') }}
+expand-hosts
+
+# Upstream DNS servers
+server=8.8.8.8
+server=8.8.4.4
+
+# Listen on all interfaces
+listen-address=127.0.0.1
+listen-address={{ ansible_default_ipv4.address }}
+
+# Cache settings
+cache-size=1000
+
+# Log queries for debugging
+log-queries
+
+# Enable dynamic host registration
+addn-hosts=/etc/dnsmasq.d/hosts
+
+# Local zone
+local=/{{ dns_domain | default('lab.local') }}/

@@ -1,4 +1,7 @@
 ---
+- name: Include secrets
+  include_tasks: secrets.yml
+
 - name: Detect OS
   set_fact:
     is_windows: "{{ ansible_os_family == 'Windows' }}"

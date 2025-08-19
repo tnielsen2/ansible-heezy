@@ -1,0 +1,20 @@
+---
+- name: Register host with DNS server
+  uri:
+    url: "http://{{ dns_server }}/register"
+    method: POST
+    body_format: json
+    body:
+      hostname: "{{ inventory_hostname }}"
+      ip: "{{ ansible_default_ipv4.address }}"
+  when: dns_server is defined
+  ignore_errors: yes
+
+- name: Add host to dnsmasq hosts file
+  lineinfile:
+    path: /etc/dnsmasq.d/hosts
+    line: "{{ ansible_default_ipv4.address }} {{ inventory_hostname }}.{{ dns_domain | default('lab.local') }} {{ inventory_hostname }}"
+    create: yes
+  delegate_to: "{{ dns_server }}"
+  when: dns_server is defined
+  notify: restart dnsmasq

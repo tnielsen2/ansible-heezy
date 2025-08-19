@@ -1,0 +1,8 @@
+---
+- name: Deploy dnsmasq DNS server
+  hosts: dns
+  become: yes
+  vars:
+    dns_domain: "lab.local"
+  roles:
+    - dnsmasq
