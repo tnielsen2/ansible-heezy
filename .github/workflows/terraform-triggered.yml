@@ -58,6 +58,19 @@ jobs:
           export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
           export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
           
+          # Create dynamic inventory for target hosts
+          mkdir -p /tmp/inventory
+          echo "[all]" > /tmp/inventory/dynamic_hosts
+          IFS=',' read -ra HOSTS <<< "${{ github.event.inputs.target_hosts }}"
+          for host in "${HOSTS[@]}"; do
+            echo "$host" >> /tmp/inventory/dynamic_hosts
+          done
+          echo "" >> /tmp/inventory/dynamic_hosts
+          echo "[all:vars]" >> /tmp/inventory/dynamic_hosts
+          echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> /tmp/inventory/dynamic_hosts
+          echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
+          echo "ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
+          
           # Set extra vars
           EXTRA_VARS=""
           if [ "${{ github.event.inputs.playbook }}" = "custom-role" ] && [ -n "${{ github.event.inputs.custom_role }}" ]; then
@@ -65,4 +78,4 @@ jobs:
           fi
           
           # Run Ansible with assumed role credentials
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy --limit "${{ github.event.inputs.target_hosts }}" /ansible/playbooks/${{ github.event.inputs.playbook }}.yml $EXTRA_VARS
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts /ansible/playbooks/${{ github.event.inputs.playbook }}.yml $EXTRA_VARS
