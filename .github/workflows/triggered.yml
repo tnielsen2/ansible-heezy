@@ -153,6 +153,6 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/_discord-notify.yml
     with:
-      status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
+      status: ${{ (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') && 'success' || 'failure' }}
       workflow-name: 'Triggered Deployment'
     secrets: inherit
