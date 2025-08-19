@@ -68,6 +68,6 @@ jobs:
           echo "$PLAYBOOKS" | tr ',' '\n' | while read playbook; do
             if [ -n "$playbook" ]; then
               echo "Running playbook: $playbook"
-              ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts /ansible/playbooks/$playbook.yml
+              ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts --limit all /ansible/playbooks/$playbook.yml
             fi
           done

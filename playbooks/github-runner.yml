@@ -1,6 +1,6 @@
 ---
 - name: GitHub Runner Setup
-  hosts: runner
+  hosts: github-runner
   become: yes
   roles:
     - github-runner
