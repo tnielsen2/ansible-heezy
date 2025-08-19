@@ -21,7 +21,7 @@ ECR_REGISTRY="$PROD_AWS_ACCOUNT_NUMBER.dkr.ecr.us-east-2.amazonaws.com"
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
 # Pull container for correct platform
-docker pull --platform linux/amd64 $ECR_REGISTRY/ansible-automation:latest
+docker pull --platform linux/amd64 $ECR_REGISTRY/ansible-automation:main
 
 # Run Ansible
 docker run --rm --network host \
@@ -30,6 +30,6 @@ docker run --rm --network host \
   -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
   -e AWS_DEFAULT_REGION=us-east-2 \
   ${EXTRA_VARS:+-e} ${EXTRA_VARS} \
-  $ECR_REGISTRY/ansible-automation:latest \
+  $ECR_REGISTRY/ansible-automation:main \
   -i $INVENTORY \
   playbooks/$PLAYBOOK.yml

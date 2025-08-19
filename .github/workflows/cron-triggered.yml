@@ -28,7 +28,7 @@ jobs:
     needs: [setup-aws]
     runs-on: self-hosted
     container:
-      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:latest
+      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main
       credentials:
         username: AWS
         password: ${{ needs.setup-aws.outputs.ecr-token }}
