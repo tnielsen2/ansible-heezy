@@ -40,6 +40,29 @@ jobs:
       runner-type: ubuntu-latest
     secrets: inherit
 
+  build-x86:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::025066240222:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push x86 image
+        run: |
+          docker build --platform linux/amd64 -t 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86 .
+          docker push 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
+
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -66,10 +89,11 @@ jobs:
               - 'playbooks/github-runner.yml'
 
   deploy:
-    needs: [setup-aws, detect-changes]
+    needs: [setup-aws, detect-changes, build-x86]
+    if: always() && !cancelled() && !failure()
     runs-on: self-hosted
     container:
-      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main
+      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
       credentials:
         username: AWS
         password: ${{ needs.setup-aws.outputs.ecr-token }}
