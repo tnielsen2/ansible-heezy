@@ -30,6 +30,7 @@
     - "/home/{{ github_runner_user }}/actions-runner-terraform/_work"
     - "/home/{{ github_runner_user }}/actions-runner-ansible/_work"
   ignore_errors: yes
+  when: item is exists
 
 - name: Set up log rotation for runner logs
   copy:
@@ -45,6 +46,7 @@
       }
     dest: /etc/logrotate.d/github-runner
     mode: '0644'
+  become: yes
 
 - name: Clean up old log files
   find:
