@@ -1,12 +1,12 @@
 ---
-- name: Include secrets
-  include_tasks: secrets.yml
-
 - name: Detect OS
   set_fact:
     is_windows: "{{ ansible_os_family == 'Windows' }}"
     is_ubuntu: "{{ ansible_distribution == 'Ubuntu' }}"
     is_talos: "{{ ansible_distribution == 'Talos' }}"
+
+- name: Include secrets
+  include_tasks: secrets.yml
 
 - name: Include Ubuntu tasks
   include_tasks: ubuntu.yml
