@@ -40,7 +40,14 @@ jobs:
             echo "Failed to retrieve webhook secret"
           fi
           
-          echo "Final webhook URL: $WEBHOOK_URL"
+          # Mask webhook URL to prevent leakage
+          if [ -n "$WEBHOOK_URL" ]; then
+            echo "::add-mask::$WEBHOOK_URL"
+            echo "Webhook URL configured"
+          else
+            echo "No webhook URL found"
+          fi
+          
           echo "url=$WEBHOOK_URL" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification

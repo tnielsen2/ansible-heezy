@@ -43,10 +43,19 @@ jobs:
           # Assume role using static runner credentials
           CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
           
+          # Extract and mask credentials
+          ASSUMED_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
+          ASSUMED_SECRET_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
+          ASSUMED_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
+          
+          echo "::add-mask::$ASSUMED_ACCESS_KEY"
+          echo "::add-mask::$ASSUMED_SECRET_KEY"
+          echo "::add-mask::$ASSUMED_SESSION_TOKEN"
+          
           # Export assumed role credentials
-          export AWS_ACCESS_KEY_ID=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
-          export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
-          export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
+          export AWS_ACCESS_KEY_ID="$ASSUMED_ACCESS_KEY"
+          export AWS_SECRET_ACCESS_KEY="$ASSUMED_SECRET_KEY"
+          export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
           
           # Create dynamic inventory for target hosts
           mkdir -p /tmp/inventory

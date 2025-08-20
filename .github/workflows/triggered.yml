@@ -125,25 +125,22 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          # Debug: Show directory structure
-          echo "=== Current directory ==="
-          pwd
-          echo "=== /ansible contents ==="
-          ls -la /ansible/
-          echo "=== /ansible/roles contents ==="
-          ls -la /ansible/roles/
-          echo "=== ansible.cfg contents ==="
-          cat /ansible/ansible.cfg
-          echo "=== Ansible version ==="
-          ansible --version
-          
           # Assume role using static runner credentials
           CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
           
+          # Extract and mask credentials
+          ASSUMED_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
+          ASSUMED_SECRET_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
+          ASSUMED_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
+          
+          echo "::add-mask::$ASSUMED_ACCESS_KEY"
+          echo "::add-mask::$ASSUMED_SECRET_KEY"
+          echo "::add-mask::$ASSUMED_SESSION_TOKEN"
+          
           # Export assumed role credentials
-          export AWS_ACCESS_KEY_ID=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
-          export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
-          export AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
+          export AWS_ACCESS_KEY_ID="$ASSUMED_ACCESS_KEY"
+          export AWS_SECRET_ACCESS_KEY="$ASSUMED_SECRET_KEY"
+          export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
           
           # Run Ansible with assumed role credentials
           ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
