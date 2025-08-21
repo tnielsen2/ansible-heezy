@@ -4,12 +4,16 @@
 [dns]
 # 192.168.1.19 hostname=management
 
+[pxe]
+192.168.1.28 hostname=shared-pxe
+
 [github-runner]
 192.168.200.2 hostname=github-runner
 
 [linux:children]
 management
 github-runner
+pxe
 
 [windows]
 # 192.168.1.32 hostname=windows-vm

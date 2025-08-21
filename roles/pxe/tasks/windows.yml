@@ -1,0 +1,5 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: PXE server not supported on Windows
+  debug:
+    msg: "PXE server deployment is only supported on Linux systems"

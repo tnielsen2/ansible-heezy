@@ -1,0 +1,17 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Include secrets
+  include_tasks: secrets.yml
+
+- name: Detect OS
+  set_fact:
+    is_windows: "{{ ansible_os_family == 'Windows' }}"
+    is_ubuntu: "{{ ansible_distribution == 'Ubuntu' }}"
+
+- name: Include Ubuntu tasks
+  include_tasks: ubuntu.yml
+  when: is_ubuntu
+
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: is_windows
