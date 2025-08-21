@@ -15,7 +15,3 @@
 - name: Include Windows tasks
   include_tasks: windows.yml
   when: is_windows
-
-- name: Include Talos tasks
-  include_tasks: talos.yml
-  when: is_talos

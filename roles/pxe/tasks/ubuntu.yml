@@ -1,17 +1,5 @@
 #SPDX-License-Identifier: MIT-0
 ---
-- name: Install Docker
-  apt:
-    name: docker.io
-    state: present
-    update_cache: yes
-
-- name: Start and enable Docker
-  systemd:
-    name: docker
-    state: started
-    enabled: yes
-
 - name: Create PXE directories
   file:
     path: "{{ item }}"
@@ -19,6 +7,7 @@
     mode: '0755'
   loop:
     - /opt/pxe/tftp
+    - /opt/pxe/tftp/pxelinux.cfg
     - /opt/pxe/http
     - /opt/pxe/config
     - /opt/pxe/logs

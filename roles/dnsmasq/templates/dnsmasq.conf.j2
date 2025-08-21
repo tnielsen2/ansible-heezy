@@ -6,7 +6,7 @@ no-resolv
 no-poll
 
 # Local domain
-domain={{ dns_domain | default('lab.local') }}
+domain={{ dns_domain | default('heezy.local') }}
 expand-hosts
 
 # Upstream DNS servers
@@ -27,4 +27,4 @@ log-queries
 addn-hosts=/etc/dnsmasq.d/hosts
 
 # Local zone
-local=/{{ dns_domain | default('lab.local') }}/
+local=/{{ dns_domain | default('heezy.local') }}/

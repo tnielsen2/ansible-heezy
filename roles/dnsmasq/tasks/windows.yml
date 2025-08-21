@@ -1,0 +1,4 @@
+---
+- name: dnsmasq not supported on Windows
+  debug:
+    msg: "dnsmasq deployment is only supported on Linux systems"

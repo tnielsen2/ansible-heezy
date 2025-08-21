@@ -9,10 +9,12 @@ on:
       - 'roles/prometheus/**'
       - 'roles/github-runner/**'
       - 'roles/pxe/**'
+      - 'roles/dnsmasq/**'
       - 'playbooks/baseline.yml'
       - 'playbooks/prometheus.yml'
       - 'playbooks/github-runner.yml'
       - 'playbooks/pxe.yml'
+      - 'playbooks/dnsmasq.yml'
       - '.github/workflows/triggered.yml'
   workflow_dispatch:
     inputs:
@@ -26,6 +28,7 @@ on:
           - prometheus
           - github-runner
           - pxe
+          - dnsmasq
         default: all
       build_image:
         description: 'Build new image'
@@ -78,6 +81,7 @@ jobs:
       prometheus: ${{ steps.changes.outputs.prometheus }}
       github-runner: ${{ steps.changes.outputs.github-runner }}
       pxe: ${{ steps.changes.outputs.pxe }}
+      dnsmasq: ${{ steps.changes.outputs.dnsmasq }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
@@ -100,6 +104,10 @@ jobs:
               - 'inventory/**'
               - 'roles/pxe/**'
               - 'playbooks/pxe.yml'
+            dnsmasq:
+              - 'inventory/**'
+              - 'roles/dnsmasq/**'
+              - 'playbooks/dnsmasq.yml'
 
   deploy:
     needs: [setup-aws, detect-changes, build-x86]
@@ -109,7 +117,8 @@ jobs:
         needs.detect-changes.outputs.baseline == 'true' ||
         needs.detect-changes.outputs.prometheus == 'true' ||
         needs.detect-changes.outputs.github-runner == 'true' ||
-        needs.detect-changes.outputs.pxe == 'true'
+        needs.detect-changes.outputs.pxe == 'true' ||
+        needs.detect-changes.outputs.dnsmasq == 'true'
       )
     runs-on: self-hosted
     container:
@@ -124,7 +133,8 @@ jobs:
           { name: "baseline", condition: "${{ needs.detect-changes.outputs.baseline == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'baseline' }}" },
           { name: "prometheus", condition: "${{ needs.detect-changes.outputs.prometheus == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'prometheus' }}" },
           { name: "github-runner", condition: "${{ needs.detect-changes.outputs.github-runner == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'github-runner' }}" },
-          { name: "pxe", condition: "${{ needs.detect-changes.outputs.pxe == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'pxe' }}" }
+          { name: "pxe", condition: "${{ needs.detect-changes.outputs.pxe == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'pxe' }}" },
+          { name: "dnsmasq", condition: "${{ needs.detect-changes.outputs.dnsmasq == 'true' || github.event.inputs.playbook == 'all' || github.event.inputs.playbook == 'dnsmasq' }}" }
         ]
       fail-fast: false
     steps:

@@ -3,6 +3,6 @@
   hosts: dns
   become: yes
   vars:
-    dns_domain: "lab.local"
+    dns_domain: "heezy.local"
   roles:
     - dnsmasq

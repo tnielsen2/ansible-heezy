@@ -1,0 +1,150 @@
+---
+- name: Create dnsmasq directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/dnsmasq/config
+    - /opt/dnsmasq/hosts
+    - /opt/dnsmasq/logs
+
+- name: Generate hosts file from inventory
+  template:
+    src: hosts.j2
+    dest: /opt/dnsmasq/hosts/hosts
+    mode: '0644'
+
+- name: Create dnsmasq configuration
+  copy:
+    content: |
+      # DNS-only configuration
+      port=53
+      domain-needed
+      bogus-priv
+      no-resolv
+      no-poll
+
+      # Local domain
+      domain={{ dns_domain | default('heezy.local') }}
+      expand-hosts
+
+      # Upstream DNS servers
+      server=8.8.8.8
+      server=8.8.4.4
+
+      # Listen on all interfaces
+      listen-address=127.0.0.1
+      listen-address=0.0.0.0
+
+      # Cache settings
+      cache-size=1000
+
+      # Log queries for debugging
+      log-queries
+
+      # Enable dynamic host registration
+      addn-hosts=/etc/dnsmasq.d/hosts
+
+      # Local zone
+      local=/{{ dns_domain | default('heezy.local') }}/
+    dest: /opt/dnsmasq/config/dnsmasq.conf
+    mode: '0644'
+
+- name: Create docker-compose for dnsmasq
+  copy:
+    content: |
+      version: '3.8'
+      services:
+        dnsmasq:
+          image: jpillora/dnsmasq
+          container_name: dnsmasq
+          restart: unless-stopped
+          network_mode: host
+          volumes:
+            - /opt/dnsmasq/config/dnsmasq.conf:/etc/dnsmasq.conf
+            - /opt/dnsmasq/hosts:/etc/dnsmasq.d
+            - /opt/dnsmasq/logs:/var/log/dnsmasq
+          ports:
+            - "53:53/tcp"
+            - "53:53/udp"
+            - "8080:8080/tcp"
+          logging:
+            driver: "json-file"
+            options:
+              max-size: "10m"
+              max-file: "3"
+    dest: /opt/dnsmasq/docker-compose.yml
+    mode: '0644'
+
+- name: Create systemd service for dnsmasq
+  copy:
+    content: |
+      [Unit]
+      Description=dnsmasq DNS Server
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/dnsmasq
+      ExecStart=/usr/bin/docker-compose up -d
+      ExecStop=/usr/bin/docker-compose down
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/dnsmasq-server.service
+    mode: '0644'
+  notify: reload systemd
+
+- name: Create log rotation config
+  copy:
+    content: |
+      /opt/dnsmasq/logs/*.log {
+        daily
+        rotate 7
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 root root
+      }
+    dest: /etc/logrotate.d/dnsmasq-server
+    mode: '0644'
+
+- name: Create cleanup script
+  copy:
+    content: |
+      #!/bin/bash
+      # Clean up old dnsmasq logs and temporary files
+      find /opt/dnsmasq/logs -name "*.log" -mtime +7 -delete
+      find /tmp -name "*dnsmasq*" -mtime +1 -delete
+      docker system prune -f --filter "until=24h"
+    dest: /opt/dnsmasq/cleanup.sh
+    mode: '0755'
+
+- name: Create cleanup cron job
+  cron:
+    name: "dnsmasq server cleanup"
+    minute: "0"
+    hour: "2"
+    job: "/opt/dnsmasq/cleanup.sh"
+
+- name: Start and enable dnsmasq service
+  systemd:
+    name: dnsmasq-server
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Configure firewall for DNS and web UI
+  ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "53", proto: "tcp" }
+    - { port: "53", proto: "udp" }
+    - { port: "8080", proto: "tcp" }
