@@ -4,6 +4,8 @@
     path: "{{ item }}"
     state: directory
     mode: '0755'
+    owner: "1000"
+    group: "1000"
   loop:
     - "{{ lgtm_config_path }}"
     - "{{ lgtm_data_path }}/prometheus"

@@ -2,6 +2,7 @@ services:
   prometheus:
     image: prom/prometheus:{{ prometheus_version }}
     container_name: prometheus
+    user: "1000:1000"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -22,6 +23,7 @@ services:
   loki:
     image: grafana/loki:{{ loki_version }}
     container_name: loki
+    user: "1000:1000"
     command: -config.file=/etc/loki/loki.yml
     ports:
       - "{{ loki_port }}:{{ loki_port }}"
@@ -35,6 +37,7 @@ services:
   grafana:
     image: grafana/grafana:{{ grafana_version }}
     container_name: grafana
+    user: "1000:1000"
     ports:
       - "{{ grafana_port }}:{{ grafana_port }}"
     volumes:
@@ -49,8 +52,9 @@ services:
       - lgtm
 
   tempo:
-    image: grafana/tempo:{{ tempo_version }}
+    image: grafana/tempo:2.4.2
     container_name: tempo
+    user: "1000:1000"
     command: -config.file=/etc/tempo/tempo.yml
     ports:
       - "{{ tempo_port }}:{{ tempo_port }}"
@@ -69,6 +73,7 @@ services:
   mimir:
     image: grafana/mimir:{{ mimir_version }}
     container_name: mimir
+    user: "1000:1000"
     command: -config.file=/etc/mimir/mimir.yml
     ports:
       - "{{ mimir_port }}:{{ mimir_port }}"
