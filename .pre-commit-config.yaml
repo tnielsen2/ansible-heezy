@@ -8,4 +8,3 @@ repos:
         additional_dependencies: [PyYAML>=6.0]
         files: ^(inventory/hosts\.yml|playbooks/.*\.yml|roles/.*/.*|scripts/generate-workflows\.py)$
         pass_filenames: false
-        stages: [manual]
