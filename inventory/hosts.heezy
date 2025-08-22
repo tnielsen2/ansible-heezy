@@ -1,8 +1,8 @@
-[management]
-# 192.168.1.19 hostname=management
+## Prod
+[github-runner]
+192.168.200.2 hostname=github-runner
 
-[dns]
-# 192.168.1.19 hostname=management
+## Shared
 
 [pxe]
 192.168.1.28 hostname=shared-pxe
@@ -10,14 +10,14 @@
 [dnsmasq]
 192.168.1.29 hostname=shared-dnsmasq
 
-[github-runner]
-192.168.200.2 hostname=github-runner
+[lgtm]
+192.168.1.10 hostname=shared-lgtm
 
 [linux:children]
-management
 github-runner
 pxe
-dns-masq
+dnsmasq
+lgtm
 
 [windows]
 # 192.168.1.32 hostname=windows-vm
@@ -26,8 +26,8 @@ dns-masq
 ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}
 ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
 ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}
-# dns_server=192.168.1.19
-# dns_domain=heezy.local
+dns_server=192.168.1.29
+dns_domain=heezy.local
 
 [windows:vars]
 ansible_connection=winrm
