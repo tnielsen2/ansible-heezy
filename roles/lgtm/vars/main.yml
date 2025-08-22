@@ -1,0 +1,22 @@
+---
+# LGTM Stack Configuration
+lgtm_data_path: /opt/lgtm/data
+lgtm_config_path: /opt/lgtm/config
+
+# Component versions
+prometheus_version: latest
+loki_version: latest
+grafana_version: latest
+tempo_version: latest
+mimir_version: latest
+
+# Ports
+prometheus_port: 9090
+loki_port: 3100
+grafana_port: 3000
+tempo_port: 3200
+mimir_port: 9009
+
+# Retention
+prometheus_retention: 30d
+loki_retention: 168h

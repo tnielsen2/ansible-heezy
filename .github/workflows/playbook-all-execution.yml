@@ -63,7 +63,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       matrix:
-        playbook: ['github-runner', 'tailscale', 'baseline', 'pxe', 'prometheus', 'dnsmasq']
+        playbook: ['github-runner', 'tailscale', 'baseline', 'pxe', 'lgtm', 'dnsmasq']
       fail-fast: false
     steps:
       - name: Run ${{ matrix.playbook }} playbook

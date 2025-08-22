@@ -1,0 +1,84 @@
+services:
+  prometheus:
+    image: prom/prometheus:{{ prometheus_version }}
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.listen-address=0.0.0.0:{{ prometheus_port }}'
+      - '--storage.tsdb.retention.time={{ prometheus_retention }}'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      - "{{ prometheus_port }}:{{ prometheus_port }}"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./data/prometheus:/prometheus
+    restart: unless-stopped
+    networks:
+      - lgtm
+
+  loki:
+    image: grafana/loki:{{ loki_version }}
+    container_name: loki
+    command: -config.file=/etc/loki/loki.yml
+    ports:
+      - "{{ loki_port }}:{{ loki_port }}"
+    volumes:
+      - ./config/loki.yml:/etc/loki/loki.yml
+      - ./data/loki:/loki
+    restart: unless-stopped
+    networks:
+      - lgtm
+
+  grafana:
+    image: grafana/grafana:{{ grafana_version }}
+    container_name: grafana
+    ports:
+      - "{{ grafana_port }}:{{ grafana_port }}"
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - lgtm
+
+  tempo:
+    image: grafana/tempo:{{ tempo_version }}
+    container_name: tempo
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "{{ tempo_port }}:{{ tempo_port }}"
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"    # tempo
+      - "4317:4317"    # otlp grpc
+      - "4318:4318"    # otlp http
+      - "9411:9411"    # zipkin
+    volumes:
+      - ./config/tempo.yml:/etc/tempo/tempo.yml
+      - ./data/tempo:/tmp/tempo
+    restart: unless-stopped
+    networks:
+      - lgtm
+
+  mimir:
+    image: grafana/mimir:{{ mimir_version }}
+    container_name: mimir
+    command: -config.file=/etc/mimir/mimir.yml
+    ports:
+      - "{{ mimir_port }}:{{ mimir_port }}"
+    volumes:
+      - ./config/mimir.yml:/etc/mimir/mimir.yml
+      - ./data/mimir:/data
+    restart: unless-stopped
+    networks:
+      - lgtm
+
+networks:
+  lgtm:
+    driver: bridge

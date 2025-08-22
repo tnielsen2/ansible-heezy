@@ -1,0 +1,6 @@
+---
+- name: LGTM Stack Setup
+  hosts: lgtm
+  become: yes
+  roles:
+    - lgtm

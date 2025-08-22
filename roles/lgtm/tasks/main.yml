@@ -1,0 +1,104 @@
+---
+- name: Create LGTM directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ lgtm_config_path }}"
+    - "{{ lgtm_data_path }}/prometheus"
+    - "{{ lgtm_data_path }}/loki"
+    - "{{ lgtm_data_path }}/grafana"
+    - "{{ lgtm_data_path }}/tempo"
+    - "{{ lgtm_data_path }}/mimir"
+
+- name: Create Prometheus configuration
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ lgtm_config_path }}/prometheus.yml"
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create Loki configuration
+  template:
+    src: loki.yml.j2
+    dest: "{{ lgtm_config_path }}/loki.yml"
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create Tempo configuration
+  template:
+    src: tempo.yml.j2
+    dest: "{{ lgtm_config_path }}/tempo.yml"
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create Mimir configuration
+  template:
+    src: mimir.yml.j2
+    dest: "{{ lgtm_config_path }}/mimir.yml"
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create Grafana provisioning directories
+  file:
+    path: "{{ lgtm_config_path }}/grafana/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - datasources
+    - dashboards
+
+- name: Create Grafana datasources configuration
+  template:
+    src: grafana-datasources.yml.j2
+    dest: "{{ lgtm_config_path }}/grafana/datasources/datasources.yml"
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create docker-compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/lgtm/docker-compose.yml
+    mode: '0644'
+  notify: restart lgtm
+
+- name: Create systemd service for LGTM stack
+  copy:
+    content: |
+      [Unit]
+      Description=LGTM Stack (Loki, Grafana, Tempo, Mimir)
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/lgtm
+      ExecStart=/usr/bin/docker compose up -d
+      ExecStop=/usr/bin/docker compose down
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/lgtm-stack.service
+    mode: '0644'
+  notify: reload systemd
+
+- name: Start LGTM stack
+  systemd:
+    name: lgtm-stack
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Configure firewall for LGTM services
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+  loop:
+    - "{{ prometheus_port }}"
+    - "{{ loki_port }}"
+    - "{{ grafana_port }}"
+    - "{{ tempo_port }}"
+    - "{{ mimir_port }}"

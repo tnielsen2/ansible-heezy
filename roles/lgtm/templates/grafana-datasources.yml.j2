@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:{{ prometheus_port }}
+    isDefault: true
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:{{ loki_port }}
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:{{ tempo_port }}
+
+  - name: Mimir
+    type: prometheus
+    access: proxy
+    url: http://mimir:{{ mimir_port }}/prometheus

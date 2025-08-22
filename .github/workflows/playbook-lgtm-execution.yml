@@ -1,14 +1,14 @@
-name: Playbook Prometheus Execution
+name: Playbook Lgtm Execution
 
-run-name: "Playbook Prometheus execution by ${{ github.actor }} - ${{ github.sha }}"
+run-name: "Playbook Lgtm execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
   push:
     branches: [main]
     paths:
       - 'inventory/**'
-      - 'roles/prometheus/**'
-      - 'playbooks/prometheus.yml'
+      - 'roles/lgtm/**'
+      - 'playbooks/lgtm.yml'
       - 'roles/baseline/**'
   workflow_dispatch:
     inputs:
@@ -23,14 +23,14 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 18 * * 0'  # Weekly on Sunday
+    - cron: '0 14 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: prometheus-deployment
+  group: lgtm-deployment
   cancel-in-progress: false
 
 jobs:
@@ -74,7 +74,7 @@ jobs:
         password: ${{ needs.setup-aws.outputs.ecr-token }}
     timeout-minutes: 60
     steps:
-      - name: Run prometheus playbook
+      - name: Run lgtm playbook
         env:
           AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
@@ -101,7 +101,7 @@ jobs:
           export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
           
           # Run Ansible with assumed role credentials
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.yml /ansible/playbooks/prometheus.yml
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.yml /ansible/playbooks/lgtm.yml
 
   notify:
     if: always()
@@ -109,5 +109,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'Playbook Prometheus Execution'
+      workflow-name: 'Playbook Lgtm Execution'
     secrets: inherit
