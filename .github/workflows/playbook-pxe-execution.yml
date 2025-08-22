@@ -1,20 +1,36 @@
-name: Cron Triggered Deployment
+name: Pxe Playbook Execution
+
+run-name: "Pxe execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'inventory/**'
+      - 'roles/pxe/**'
+      - 'playbooks/pxe.yml'
+      - 'roles/baseline/**'
+  workflow_dispatch:
+    inputs:
+      target_groups:
+        description: 'Target groups (comma-separated)'
+        required: false
+        type: string
+        default: 'github-runner,pxe,dnsmasq,lgtm'
+      build_image:
+        description: 'Build new image'
+        required: false
+        type: boolean
+        default: false
   schedule:
-    # Baseline: Daily at midnight UTC-4 (4 AM UTC)
-    - cron: '0 4 * * *'
-    # Prometheus: Daily at 1 AM UTC-4 (5 AM UTC)
-    - cron: '0 5 * * *'
-    # GitHub Runner: Daily at 2 AM UTC-4 (6 AM UTC)
-    - cron: '0 6 * * *'
+    - cron: '0 5 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: ansible-cron-deployment
+  group: pxe-deployment
   cancel-in-progress: false
 
 jobs:
@@ -24,26 +40,41 @@ jobs:
       runner-type: ubuntu-latest
     secrets: inherit
 
+  build-x86:
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.build_image == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::025066240222:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push x86 image
+        run: |
+          docker build --no-cache --platform linux/amd64 -t 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86 .
+          docker push 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
+
   deploy:
-    needs: [setup-aws]
+    needs: [setup-aws, build-x86]
+    if: always() && !cancelled() && needs.build-x86.result != 'failure'
     runs-on: self-hosted
     container:
-      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main
+      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
       credentials:
         username: AWS
         password: ${{ needs.setup-aws.outputs.ecr-token }}
     timeout-minutes: 60
-    strategy:
-      matrix:
-        playbook: [
-          { name: "baseline", condition: "${{ github.event.schedule == '0 4 * * *' }}" },
-          { name: "prometheus", condition: "${{ github.event.schedule == '0 5 * * *' }}" },
-          { name: "github-runner", condition: "${{ github.event.schedule == '0 6 * * *' }}" }
-        ]
-      fail-fast: false
     steps:
-      - name: Run ${{ matrix.playbook.name }} playbook
-        if: ${{ matrix.playbook.condition }}
+      - name: Run pxe playbook
         env:
           AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
           AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
@@ -70,7 +101,7 @@ jobs:
           export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
           
           # Run Ansible with assumed role credentials
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.heezy /ansible/playbooks/${{ matrix.playbook.name }}.yml
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.yml /ansible/playbooks/pxe.yml
 
   notify:
     if: always()
@@ -78,5 +109,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'Cron Triggered Deployment'
+      workflow-name: 'Pxe Playbook Execution'
     secrets: inherit

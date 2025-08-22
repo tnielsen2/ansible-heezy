@@ -1,5 +1,7 @@
 name: Terraform Provisioning
 
+run-name: "Terraform provisioning by ${{ github.actor }} - ${{ github.sha }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -8,9 +10,16 @@ on:
         required: true
         type: string
       playbooks:
-        description: 'Playbooks to execute (comma-separated, e.g. baseline,github-runner)'
+        description: 'Playbooks to execute'
         required: true
-        type: string
+        type: choice
+        options:
+          - baseline
+          - github-runner
+          - tailscale
+          - pxe
+          - prometheus
+          - dnsmasq
         default: baseline
 
 permissions:
@@ -62,34 +71,23 @@ jobs:
           
           # Create dynamic inventory for target hosts
           mkdir -p /tmp/inventory
-          TARGET_HOSTS="${{ github.event.inputs.target_hosts }}"
-          PLAYBOOKS="${{ github.event.inputs.playbooks }}"
+          TARGET_HOSTS="${ github.event.inputs.target_hosts }"
+          PLAYBOOK="${ github.event.inputs.playbooks }"
           
-          # Start inventory with [all] group
-          echo "[all]" > /tmp/inventory/dynamic_hosts
-          echo "$TARGET_HOSTS" | tr ',' '\n' >> /tmp/inventory/dynamic_hosts
-          echo "" >> /tmp/inventory/dynamic_hosts
+          # Create YAML inventory
+          cat > /tmp/inventory/dynamic_hosts.yml << EOF
+          all:
+            hosts:
+          $(echo "$TARGET_HOSTS" | tr ',' '\n' | while read host; do
+            echo "      $host:"
+            echo "        hostname: $host"
+          done)
+            vars:
+              ansible_user: "{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}"
+              ansible_password: "{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}"
+              ansible_become_password: "{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}"
+          EOF
           
-          # Create groups for each playbook (except baseline)
-          echo "$PLAYBOOKS" | tr ',' '\n' | while read playbook; do
-            if [ -n "$playbook" ] && [ "$playbook" != "baseline" ]; then
-              echo "[$playbook]" >> /tmp/inventory/dynamic_hosts
-              echo "$TARGET_HOSTS" | tr ',' '\n' >> /tmp/inventory/dynamic_hosts
-              echo "" >> /tmp/inventory/dynamic_hosts
-            fi
-          done
-          
-          # Add variables
-          echo "[all:vars]" >> /tmp/inventory/dynamic_hosts
-          echo "ansible_user={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}" >> /tmp/inventory/dynamic_hosts
-          echo "ansible_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
-          echo "ansible_become_password={{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}" >> /tmp/inventory/dynamic_hosts
-          
-          # Run playbooks in sequence
-          PLAYBOOKS="${{ github.event.inputs.playbooks }}"
-          echo "$PLAYBOOKS" | tr ',' '\n' | while read playbook; do
-            if [ -n "$playbook" ]; then
-              echo "Running playbook: $playbook"
-              ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts --limit all /ansible/playbooks/$playbook.yml
-            fi
-          done
+          # Run playbook
+          echo "Running playbook: $PLAYBOOK"
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts.yml /ansible/playbooks/$PLAYBOOK.yml

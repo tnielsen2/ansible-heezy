@@ -1,0 +1,105 @@
+name: All Playbooks Execution
+
+run-name: "All playbooks execution by ${{ github.actor }} - ${{ github.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_image:
+        description: 'Build new image'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 2 * * 6'  # Weekly on Saturday at 2 AM
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: all-playbooks-deployment
+  cancel-in-progress: false
+
+jobs:
+  setup-aws:
+    uses: ./.github/workflows/_setup-runner-aws-credentials.yml
+    with:
+      runner-type: ubuntu-latest
+    secrets: inherit
+
+  build-x86:
+    if: github.event.inputs.build_image == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::025066240222:role/GitHubActions-MultiRepo
+          aws-region: us-east-2
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push x86 image
+        run: |
+          docker build --no-cache --platform linux/amd64 -t 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86 .
+          docker push 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
+
+  deploy:
+    needs: [setup-aws, build-x86]
+    if: always() && !cancelled() && needs.build-x86.result != 'failure'
+    runs-on: self-hosted
+    container:
+      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
+      credentials:
+        username: AWS
+        password: ${{ needs.setup-aws.outputs.ecr-token }}
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        playbook: ['github-runner', 'tailscale', 'baseline', 'pxe', 'prometheus', 'dnsmasq']
+      fail-fast: false
+    steps:
+      - name: Run ${{ matrix.playbook }} playbook
+        env:
+          AWS_ACCESS_KEY_ID: ${{ needs.setup-aws.outputs.runner-access-key }}
+          AWS_SECRET_ACCESS_KEY: ${{ needs.setup-aws.outputs.runner-secret-key }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          # Mask initial credentials
+          echo "::add-mask::$AWS_ACCESS_KEY_ID"
+          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+          # Assume role using static runner credentials
+          CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
+          
+          # Extract and mask credentials
+          ASSUMED_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
+          ASSUMED_SECRET_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
+          ASSUMED_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
+          
+          echo "::add-mask::$ASSUMED_ACCESS_KEY"
+          echo "::add-mask::$ASSUMED_SECRET_KEY"
+          echo "::add-mask::$ASSUMED_SESSION_TOKEN"
+          
+          # Export assumed role credentials
+          export AWS_ACCESS_KEY_ID="$ASSUMED_ACCESS_KEY"
+          export AWS_SECRET_ACCESS_KEY="$ASSUMED_SECRET_KEY"
+          export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
+          
+          # Run Ansible with assumed role credentials
+          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /ansible/inventory/hosts.yml /ansible/playbooks/${{ matrix.playbook }}.yml
+
+  notify:
+    if: always()
+    needs: [deploy]
+    uses: ./.github/workflows/_discord-notify.yml
+    with:
+      status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
+      workflow-name: 'All Playbooks Execution'
+    secrets: inherit
