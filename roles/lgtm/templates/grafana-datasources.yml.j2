@@ -6,18 +6,42 @@ datasources:
     access: proxy
     url: http://prometheus:{{ prometheus_port }}
     isDefault: true
+    jsonData:
+      timeInterval: 15s
 
   - name: Loki
     type: loki
     access: proxy
     url: http://loki:{{ loki_port }}
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: "traceID=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
 
   - name: Tempo
     type: tempo
     access: proxy
     url: http://tempo:{{ tempo_port }}
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service.name', value: 'job' }]
+        mapTagNamesEnabled: false
+        spanStartTimeShift: 1h
+        spanEndTimeShift: 1h
+        filterByTraceID: false
+        filterBySpanID: false
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
 
   - name: Mimir
     type: prometheus
     access: proxy
     url: http://mimir:{{ mimir_port }}/prometheus
+    jsonData:
+      timeInterval: 15s

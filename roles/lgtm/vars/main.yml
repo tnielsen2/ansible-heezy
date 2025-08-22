@@ -20,3 +20,6 @@ mimir_port: 9009
 # Retention
 prometheus_retention: 30d
 loki_retention: 168h
+
+# LGTM Server (for baseline role)
+loki_server: 192.168.1.10

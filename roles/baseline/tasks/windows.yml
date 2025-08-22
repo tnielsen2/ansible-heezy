@@ -116,3 +116,71 @@
         - Fax
         - TapiSrv
       ignore_errors: yes
+
+- name: Install Promtail for Windows log shipping
+  block:
+    - name: Download Promtail for Windows
+      win_get_url:
+        url: "https://github.com/grafana/loki/releases/download/v3.5.3/promtail-windows-amd64.exe.zip"
+        dest: "C:\\temp\\promtail.zip"
+    - name: Extract Promtail
+      win_unzip:
+        src: "C:\\temp\\promtail.zip"
+        dest: "C:\\Program Files\\Promtail\\"
+        creates: "C:\\Program Files\\Promtail\\promtail-windows-amd64.exe"
+    - name: Create Promtail config directory
+      win_file:
+        path: "C:\\Program Files\\Promtail\\config"
+        state: directory
+    - name: Create Promtail configuration
+      win_copy:
+        content: |
+          server:
+            http_listen_port: 9080
+            grpc_listen_port: 0
+
+          positions:
+            filename: C:\temp\positions.yaml
+
+          clients:
+            - url: http://{{ loki_server | default('192.168.200.2') }}:3100/loki/api/v1/push
+
+          scrape_configs:
+            - job_name: windows-system
+              windows_events:
+                use_incoming_timestamp: false
+                bookmark_path: C:\temp\bookmark.xml
+                eventlog_name: "System"
+                xpath_query: '*'
+                labels:
+                  job: windows-system
+                  host: "{{ ansible_hostname }}"
+            - job_name: windows-application
+              windows_events:
+                use_incoming_timestamp: false
+                bookmark_path: C:\temp\bookmark-app.xml
+                eventlog_name: "Application"
+                xpath_query: '*'
+                labels:
+                  job: windows-application
+                  host: "{{ ansible_hostname }}"
+            - job_name: windows-security
+              windows_events:
+                use_incoming_timestamp: false
+                bookmark_path: C:\temp\bookmark-sec.xml
+                eventlog_name: "Security"
+                xpath_query: '*'
+                labels:
+                  job: windows-security
+                  host: "{{ ansible_hostname }}"
+        dest: "C:\\Program Files\\Promtail\\config\\config.yml"
+    - name: Install Promtail as Windows service
+      win_command: |
+        "C:\Program Files\Promtail\promtail-windows-amd64.exe" -config.file="C:\Program Files\Promtail\config\config.yml" --windows-service install
+      args:
+        creates: "C:\\Windows\\System32\\promtail.exe"
+    - name: Start Promtail service
+      win_service:
+        name: promtail
+        state: started
+        start_mode: auto

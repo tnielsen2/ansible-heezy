@@ -58,6 +58,13 @@
     mode: '0644'
   notify: restart lgtm
 
+- name: Create Grafana dashboards configuration
+  template:
+    src: grafana-dashboards.yml.j2
+    dest: "{{ lgtm_config_path }}/grafana/dashboards/dashboards.yml"
+    mode: '0644'
+  notify: restart lgtm
+
 - name: Create docker-compose file
   template:
     src: docker-compose.yml.j2

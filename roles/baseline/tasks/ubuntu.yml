@@ -147,3 +147,93 @@
         state: started
         enabled: yes
         daemon_reload: yes
+
+- name: Install Promtail for log shipping
+  block:
+    - name: Download Promtail
+      get_url:
+        url: "https://github.com/grafana/loki/releases/download/v3.5.3/promtail-linux-amd64.zip"
+        dest: "/tmp/promtail.zip"
+    - name: Extract Promtail
+      unarchive:
+        src: "/tmp/promtail.zip"
+        dest: "/tmp"
+        remote_src: yes
+    - name: Copy Promtail binary
+      copy:
+        src: "/tmp/promtail-linux-amd64"
+        dest: "/usr/local/bin/promtail"
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+    - name: Create Promtail config directory
+      file:
+        path: /etc/promtail
+        state: directory
+        mode: '0755'
+    - name: Create Promtail configuration
+      copy:
+        content: |
+          server:
+            http_listen_port: 9080
+            grpc_listen_port: 0
+
+          positions:
+            filename: /tmp/positions.yaml
+
+          clients:
+            - url: http://{{ loki_server | default('192.168.200.2') }}:3100/loki/api/v1/push
+
+          scrape_configs:
+            - job_name: system
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: varlogs
+                    __path__: /var/log/*log
+                    host: "{{ ansible_hostname }}"
+            - job_name: syslog
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: syslog
+                    __path__: /var/log/syslog
+                    host: "{{ ansible_hostname }}"
+            - job_name: auth
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: auth
+                    __path__: /var/log/auth.log
+                    host: "{{ ansible_hostname }}"
+        dest: /etc/promtail/config.yml
+    - name: Create systemd service for Promtail
+      copy:
+        content: |
+          [Unit]
+          Description=Promtail service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/local/bin/promtail -config.file /etc/promtail/config.yml
+          Restart=on-failure
+          RestartSec=20
+          StandardOutput=append:/var/log/promtail.log
+          StandardError=append:/var/log/promtail.log
+          SyslogIdentifier=promtail
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/promtail.service
+    - name: Start and enable Promtail
+      systemd:
+        name: promtail
+        state: started
+        enabled: yes
+        daemon_reload: yes

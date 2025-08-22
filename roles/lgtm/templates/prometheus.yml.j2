@@ -29,15 +29,37 @@ scrape_configs:
       - targets: ['mimir:{{ mimir_port }}']
 
   - job_name: 'node-exporter'
+    scrape_interval: 15s
     static_configs:
       - targets:
-{% for host in groups['linux'] %}
+{% for host in groups['linux'] | default([]) %}
         - '{{ host }}:9100'
 {% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.+'
+        replacement: '${1}'
 
   - job_name: 'windows-exporter'
+    scrape_interval: 15s
     static_configs:
       - targets:
-{% for host in groups['windows'] %}
+{% for host in groups['windows'] | default([]) %}
         - '{{ host }}:9182'
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.+'
+        replacement: '${1}'
+
+  - job_name: 'promtail'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+{% for host in groups['all'] | default([]) %}
+{% if host not in groups['windows'] | default([]) %}
+        - '{{ host }}:9080'
+{% endif %}
 {% endfor %}
