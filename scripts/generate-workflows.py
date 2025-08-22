@@ -41,9 +41,9 @@ def generate_playbook_workflow(playbook_name, groups):
     if playbook_name != 'baseline':
         path_filters.append("'roles/baseline/**'")
     
-    workflow_content = f"""name: {playbook_name.title()} Playbook Execution
+    workflow_content = f"""name: Playbook {playbook_name.title()} Execution
 
-run-name: "{playbook_name.title()} execution by ${{{{ github.actor }}}} - ${{{{ github.sha }}}}"
+run-name: "Playbook {playbook_name.title()} execution by ${{{{ github.actor }}}} - ${{{{ github.sha }}}}"
 
 on:
   push:
@@ -149,7 +149,7 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{{{ needs.deploy.result == 'success' && 'success' || 'failure' }}}}
-      workflow-name: '{playbook_name.title()} Playbook Execution'
+      workflow-name: 'Playbook {playbook_name.title()} Execution'
     secrets: inherit
 """
     
@@ -158,9 +158,9 @@ jobs:
 def generate_all_playbooks_workflow(playbooks):
     """Generate workflow that runs all playbooks"""
     
-    workflow_content = f"""name: All Playbooks Execution
+    workflow_content = f"""name: Playbook All Execution
 
-run-name: "All playbooks execution by ${{{{ github.actor }}}} - ${{{{ github.sha }}}}"
+run-name: "Playbook All execution by ${{{{ github.actor }}}} - ${{{{ github.sha }}}}"
 
 on:
   workflow_dispatch:
@@ -261,7 +261,7 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{{{ needs.deploy.result == 'success' && 'success' || 'failure' }}}}
-      workflow-name: 'All Playbooks Execution'
+      workflow-name: 'Playbook All Execution'
     secrets: inherit
 """
     
