@@ -267,102 +267,7 @@ jobs:
     
     return workflow_content
 
-def update_terraform_triggered(playbooks):
-    """Update terraform-triggered.yml with dynamic playbook options"""
-    
-    playbook_options = ['baseline'] + [p for p in playbooks if p != 'baseline']
-    
-    terraform_content = f"""name: Terraform Provisioning
 
-run-name: "Terraform provisioning by ${{{{ github.actor }}}} - ${{{{ github.sha }}}}"
-
-on:
-  workflow_dispatch:
-    inputs:
-      target_hosts:
-        description: 'Target hosts (comma-separated IPs or inventory group)'
-        required: true
-        type: string
-      playbooks:
-        description: 'Playbooks to execute'
-        required: true
-        type: choice
-        options:
-{chr(10).join(f'          - {playbook}' for playbook in playbook_options)}
-        default: baseline
-
-permissions:
-  id-token: write
-  contents: read
-
-jobs:
-  setup-aws:
-    uses: ./.github/workflows/_setup-runner-aws-credentials.yml
-    with:
-      runner-type: ubuntu-latest
-    secrets: inherit
-
-  provision:
-    needs: setup-aws
-    runs-on: self-hosted
-    container:
-      image: 025066240222.dkr.ecr.us-east-2.amazonaws.com/ansible-automation:main-x86
-      credentials:
-        username: AWS
-        password: ${{{{ needs.setup-aws.outputs.ecr-token }}}}
-    timeout-minutes: 60
-    steps:
-      - name: Run playbook
-        env:
-          AWS_ACCESS_KEY_ID: ${{{{ needs.setup-aws.outputs.runner-access-key }}}}
-          AWS_SECRET_ACCESS_KEY: ${{{{ needs.setup-aws.outputs.runner-secret-key }}}}
-          AWS_DEFAULT_REGION: us-east-2
-        run: |
-          # Mask initial credentials
-          echo "::add-mask::$AWS_ACCESS_KEY_ID"
-          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
-          # Assume role using static runner credentials
-          CREDS=$(aws sts assume-role --role-arn arn:aws:iam::025066240222:role/GitHubActions-MultiRepo --role-session-name ansible-session)
-          
-          # Extract and mask credentials
-          ASSUMED_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')
-          ASSUMED_SECRET_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')
-          ASSUMED_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')
-          
-          echo "::add-mask::$ASSUMED_ACCESS_KEY"
-          echo "::add-mask::$ASSUMED_SECRET_KEY"
-          echo "::add-mask::$ASSUMED_SESSION_TOKEN"
-          
-          # Export assumed role credentials
-          export AWS_ACCESS_KEY_ID="$ASSUMED_ACCESS_KEY"
-          export AWS_SECRET_ACCESS_KEY="$ASSUMED_SECRET_KEY"
-          export AWS_SESSION_TOKEN="$ASSUMED_SESSION_TOKEN"
-          
-          # Create dynamic inventory for target hosts
-          mkdir -p /tmp/inventory
-          TARGET_HOSTS="${{ github.event.inputs.target_hosts }}"
-          PLAYBOOK="${{ github.event.inputs.playbooks }}"
-          
-          # Create YAML inventory
-          cat > /tmp/inventory/dynamic_hosts.yml << EOF
-          all:
-            hosts:
-          $(echo "$TARGET_HOSTS" | tr ',' '\\n' | while read host; do
-            echo "      $host:"
-            echo "        hostname: $host"
-          done)
-            vars:
-              ansible_user: "{{{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('username') }}}}"
-              ansible_password: "{{{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}}}"
-              ansible_become_password: "{{{{ lookup('aws_secret', 'production/heezy/ubuntu/cloud-init-credentials', region='us-east-2') | from_json | json_query('password') }}}}"
-          EOF
-          
-          # Run playbook
-          echo "Running playbook: $PLAYBOOK"
-          ANSIBLE_CONFIG=/ansible/ansible.cfg ANSIBLE_ROLES_PATH=/ansible/roles ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i /tmp/inventory/dynamic_hosts.yml /ansible/playbooks/$PLAYBOOK.yml
-"""
-    
-    return terraform_content
 
 def cleanup_orphaned_workflows(current_playbooks):
     """Remove workflow files for playbooks that no longer exist"""
@@ -426,12 +331,7 @@ def main():
     
     print("Generated: .github/workflows/playbook-all-execution.yml")
     
-    # Update terraform-triggered workflow
-    terraform_content = update_terraform_triggered(playbooks)
-    with open('.github/workflows/terraform-triggered.yml', 'w') as f:
-        f.write(terraform_content)
-    
-    print("Updated: .github/workflows/terraform-triggered.yml")
+
 
 if __name__ == "__main__":
     main()
