@@ -12,6 +12,16 @@
     - /opt/pxe/config
     - /opt/pxe/logs
 
+- name: Create iPXE boot script
+  copy:
+    content: |
+      #!ipxe
+      kernel vmlinuz-amd64 talos.platform=metal slab_nomerge pti=on console=tty0 console=ttyS0,115200
+      initrd initramfs-amd64.xz
+      boot
+    dest: /opt/pxe/tftp/boot.ipxe
+    mode: '0644'
+
 - name: Copy Talos kernel and initramfs
   copy:
     src: "{{ item.src }}"
@@ -44,7 +54,6 @@
 - name: Create docker-compose for PXE server
   copy:
     content: |
-      version: '3.8'
       services:
         pxe-server:
           image: ferrarimarco/pxe
