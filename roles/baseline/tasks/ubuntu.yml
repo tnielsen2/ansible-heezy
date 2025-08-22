@@ -65,8 +65,14 @@
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          - docker-compose-plugin
         state: present
         update_cache: yes
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
   when: ansible_os_family == "Debian"
 
 - name: Check if AWS CLI is installed
