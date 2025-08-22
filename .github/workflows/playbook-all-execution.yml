@@ -1,6 +1,6 @@
-name: All Playbooks Execution
+name: Playbook All Execution
 
-run-name: "All playbooks execution by ${{ github.actor }} - ${{ github.sha }}"
+run-name: "Playbook All execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
   workflow_dispatch:
@@ -101,5 +101,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'All Playbooks Execution'
+      workflow-name: 'Playbook All Execution'
     secrets: inherit

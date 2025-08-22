@@ -1,6 +1,6 @@
-name: Tailscale Playbook Execution
+name: Playbook Tailscale Execution
 
-run-name: "Tailscale execution by ${{ github.actor }} - ${{ github.sha }}"
+run-name: "Playbook Tailscale execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
   push:
@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 9 * * 0'  # Weekly on Sunday
+    - cron: '0 13 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
@@ -109,5 +109,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'Tailscale Playbook Execution'
+      workflow-name: 'Playbook Tailscale Execution'
     secrets: inherit

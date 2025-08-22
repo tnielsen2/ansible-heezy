@@ -1,6 +1,6 @@
-name: Dnsmasq Playbook Execution
+name: Playbook Dnsmasq Execution
 
-run-name: "Dnsmasq execution by ${{ github.actor }} - ${{ github.sha }}"
+run-name: "Playbook Dnsmasq execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
   push:
@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 4 * * 0'  # Weekly on Sunday
+    - cron: '0 11 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
@@ -109,5 +109,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'Dnsmasq Playbook Execution'
+      workflow-name: 'Playbook Dnsmasq Execution'
     secrets: inherit

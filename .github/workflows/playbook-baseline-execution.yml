@@ -1,6 +1,6 @@
-name: Baseline Playbook Execution
+name: Playbook Baseline Execution
 
-run-name: "Baseline execution by ${{ github.actor }} - ${{ github.sha }}"
+run-name: "Playbook Baseline execution by ${{ github.actor }} - ${{ github.sha }}"
 
 on:
   push:
@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 3 * * 0'  # Weekly on Sunday
+    - cron: '0 18 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
@@ -108,5 +108,5 @@ jobs:
     uses: ./.github/workflows/_discord-notify.yml
     with:
       status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-      workflow-name: 'Baseline Playbook Execution'
+      workflow-name: 'Playbook Baseline Execution'
     secrets: inherit
