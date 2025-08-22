@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 18 * * 0'  # Weekly on Sunday
+    - cron: '0 13 * * 0'  # Weekly on Sunday
 
 permissions:
   id-token: write
