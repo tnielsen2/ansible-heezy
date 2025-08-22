@@ -12,3 +12,13 @@ github_token_secret: "all/heezy/github/runner/personal-access-token"
 # Repository configuration
 terraform_repo: "tnielsen2/terraform-heezy"
 ansible_repo: "tnielsen2/ansible-heezy"
+
+# Runner configuration
+runners_per_repo: 4
+runner_repos:
+  - name: terraform
+    repo: "{{ terraform_repo }}"
+    labels: "self-hosted,linux,x64,terraform"
+  - name: ansible
+    repo: "{{ ansible_repo }}"
+    labels: "self-hosted,linux,x64,ansible"

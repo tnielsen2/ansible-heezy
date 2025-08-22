@@ -25,14 +25,12 @@
 
 - name: Create actions-runner directories
   file:
-    path: "{{ item }}"
+    path: "/home/{{ github_runner_user }}/actions-runner-{{ item.0.name }}-{{ item.1 }}"
     state: directory
     mode: '0755'
     owner: "{{ github_runner_user }}"
     group: "{{ github_runner_user }}"
-  loop:
-    - "/home/{{ github_runner_user }}/actions-runner-terraform"
-    - "/home/{{ github_runner_user }}/actions-runner-ansible"
+  loop: "{{ runner_repos | product(range(1, runners_per_repo + 1)) | list }}"
 
 - name: Check if GitHub Actions runner is downloaded
   stat:
@@ -45,96 +43,55 @@
     dest: "/tmp/actions-runner.tar.gz"
   when: not runner_archive.stat.exists
 
-- name: Check if terraform runner is configured
+- name: Check if runners are configured
   stat:
-    path: "/home/{{ github_runner_user }}/actions-runner-terraform/.runner"
-  register: terraform_runner_configured
+    path: "/home/{{ github_runner_user }}/actions-runner-{{ item.0.name }}-{{ item.1 }}/.runner"
+  register: runners_configured
+  loop: "{{ runner_repos | product(range(1, runners_per_repo + 1)) | list }}"
 
-- name: Extract GitHub Actions runner for terraform repo
+- name: Extract GitHub Actions runner
   unarchive:
     src: "/tmp/actions-runner.tar.gz"
-    dest: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    dest: "/home/{{ github_runner_user }}/actions-runner-{{ item.item.0.name }}-{{ item.item.1 }}"
     owner: "{{ github_runner_user }}"
     group: "{{ github_runner_user }}"
     remote_src: yes
-  when: not terraform_runner_configured.stat.exists
+  when: not item.stat.exists
+  loop: "{{ runners_configured.results }}"
 
-- name: Check if ansible runner is configured
-  stat:
-    path: "/home/{{ github_runner_user }}/actions-runner-ansible/.runner"
-  register: ansible_runner_configured
-
-- name: Extract GitHub Actions runner for ansible repo
-  unarchive:
-    src: "/tmp/actions-runner.tar.gz"
-    dest: "/home/{{ github_runner_user }}/actions-runner-ansible"
-    owner: "{{ github_runner_user }}"
-    group: "{{ github_runner_user }}"
-    remote_src: yes
-  when: not ansible_runner_configured.stat.exists
-
-- name: Set permissions on terraform runner directory
+- name: Set permissions on runner directories
   file:
-    path: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    path: "/home/{{ github_runner_user }}/actions-runner-{{ item.item.0.name }}-{{ item.item.1 }}"
     owner: "{{ github_runner_user }}"
     group: "{{ github_runner_user }}"
     mode: '0755'
     recurse: yes
-  when: not terraform_runner_configured.stat.exists
+  when: not item.stat.exists
+  loop: "{{ runners_configured.results }}"
 
-- name: Set permissions on ansible runner directory
-  file:
-    path: "/home/{{ github_runner_user }}/actions-runner-ansible"
-    owner: "{{ github_runner_user }}"
-    group: "{{ github_runner_user }}"
-    mode: '0755'
-    recurse: yes
-  when: not ansible_runner_configured.stat.exists
-
-- name: Configure terraform-heezy runner
+- name: Configure runners
   command: >
-    ./config.sh --url https://github.com/{{ terraform_repo }}
-    --token {{ terraform_registration.json.token }}
-    --name heezy-{{ hostname }}-terraform
-    --labels self-hosted,linux,x64,terraform
+    ./config.sh --url https://github.com/{{ item.item.0.repo }}
+    --token {{ terraform_registration.json.token if item.item.0.name == 'terraform' else ansible_registration.json.token }}
+    --name heezy-{{ hostname }}-{{ item.item.0.name }}-{{ item.item.1 }}
+    --labels {{ item.item.0.labels }}
     --unattended
   args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
+    chdir: "/home/{{ github_runner_user }}/actions-runner-{{ item.item.0.name }}-{{ item.item.1 }}"
   become: yes
   become_user: "{{ github_runner_user }}"
-  when: not terraform_runner_configured.stat.exists
+  when: not item.stat.exists
+  loop: "{{ runners_configured.results }}"
 
-- name: Configure ansible-heezy runner
-  command: >
-    ./config.sh --url https://github.com/{{ ansible_repo }}
-    --token {{ ansible_registration.json.token }}
-    --name heezy-{{ hostname }}-ansible
-    --labels self-hosted,linux,x64,ansible
-    --unattended
-  args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
-  become: yes
-  become_user: "{{ github_runner_user }}"
-  when: not ansible_runner_configured.stat.exists
-
-- name: Install terraform runner service
+- name: Install runner services
   command: ./svc.sh install
   args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
-  when: not terraform_runner_configured.stat.exists
+    chdir: "/home/{{ github_runner_user }}/actions-runner-{{ item.item.0.name }}-{{ item.item.1 }}"
+  when: not item.stat.exists
+  loop: "{{ runners_configured.results }}"
 
-- name: Install ansible runner service
-  command: ./svc.sh install
-  args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
-  when: not ansible_runner_configured.stat.exists
-
-- name: Start terraform runner service
+- name: Start runner services
   command: ./svc.sh start
   args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-terraform"
-
-- name: Start ansible runner service
-  command: ./svc.sh start
-  args:
-    chdir: "/home/{{ github_runner_user }}/actions-runner-ansible"
+    chdir: "/home/{{ github_runner_user }}/actions-runner-{{ item.0.name }}-{{ item.1 }}"
+  loop: "{{ runner_repos | product(range(1, runners_per_repo + 1)) | list }}"
