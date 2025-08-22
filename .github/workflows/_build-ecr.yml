@@ -1,4 +1,4 @@
-name: Build and Push to ECR
+name: _Build and Push to ECR
 
 on:
   workflow_call:
