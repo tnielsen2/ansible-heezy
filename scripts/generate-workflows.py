@@ -364,6 +364,34 @@ jobs:
     
     return terraform_content
 
+def cleanup_orphaned_workflows(current_playbooks):
+    """Remove workflow files for playbooks that no longer exist"""
+    workflow_dir = '.github/workflows'
+    if not os.path.exists(workflow_dir):
+        return
+    
+    # Find all existing playbook workflow files
+    existing_workflows = glob.glob(f'{workflow_dir}/playbook-*-execution.yml')
+    
+    # Special files to never delete
+    protected_files = ['playbook-all-execution.yml']
+    
+    for workflow_file in existing_workflows:
+        # Extract playbook name from filename
+        filename = os.path.basename(workflow_file)
+        
+        # Skip protected files
+        if filename in protected_files:
+            continue
+            
+        if filename.startswith('playbook-') and filename.endswith('-execution.yml'):
+            playbook_name = filename[9:-14]  # Remove 'playbook-' and '-execution.yml'
+            
+            # If playbook no longer exists, remove the workflow
+            if playbook_name not in current_playbooks:
+                os.remove(workflow_file)
+                print(f"Removed orphaned workflow: {workflow_file}")
+
 def main():
     """Main function to generate all workflows"""
     
@@ -377,6 +405,9 @@ def main():
     
     # Create workflows directory if it doesn't exist
     os.makedirs('.github/workflows', exist_ok=True)
+    
+    # Clean up orphaned workflows first
+    cleanup_orphaned_workflows(playbooks)
     
     # Generate individual playbook workflows
     for playbook in playbooks:
