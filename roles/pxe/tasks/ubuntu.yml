@@ -56,15 +56,11 @@
             - /opt/pxe/http:/var/www/html
             - /opt/pxe/logs:/var/log/pxe
           environment:
-            - DHCP_RANGE=192.168.1.100,192.168.1.150
-            - DHCP_ROUTER=192.168.1.1
-            - DHCP_DNS=192.168.1.1
+            - DISABLE_DHCP=true
             - PXE_PROMPT_TIMEOUT=10
             - PXE_DEFAULT_ENTRY=talos
           ports:
-            - "67:67/udp"
             - "69:69/udp"
-            - "4011:4011/udp"
             - "80:80/tcp"
           logging:
             driver: "json-file"
@@ -142,7 +138,5 @@
     port: "{{ item.port }}"
     proto: "{{ item.proto }}"
   loop:
-    - { port: "67", proto: "udp" }
     - { port: "69", proto: "udp" }
-    - { port: "4011", proto: "udp" }
     - { port: "80", proto: "tcp" }
