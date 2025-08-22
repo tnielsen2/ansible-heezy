@@ -51,6 +51,8 @@
           container_name: pxe-server
           restart: unless-stopped
           network_mode: host
+          cap_add:
+            - NET_ADMIN
           volumes:
             - /opt/pxe/tftp:/var/lib/tftpboot
             - /opt/pxe/http:/var/www/html
