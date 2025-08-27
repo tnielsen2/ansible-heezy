@@ -237,3 +237,103 @@
         state: started
         enabled: yes
         daemon_reload: yes
+
+- name: Configure aggressive log rotation
+  copy:
+    content: |
+      /var/log/*.log {
+        daily
+        rotate 3
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 root root
+      }
+      /var/log/syslog {
+        daily
+        rotate 3
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 syslog adm
+      }
+      /var/log/auth.log {
+        daily
+        rotate 3
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 root adm
+      }
+    dest: /etc/logrotate.d/aggressive-cleanup
+    mode: '0644'
+
+- name: Configure Docker log rotation
+  copy:
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+
+- name: Create cleanup script
+  copy:
+    content: |
+      #!/bin/bash
+      # Aggressive system cleanup script
+      
+      # Clean package cache
+      apt-get clean
+      apt-get autoclean
+      apt-get autoremove -y
+      
+      # Clean old logs (keep only 3 days)
+      find /var/log -name "*.log" -mtime +3 -delete
+      find /var/log -name "*.gz" -mtime +7 -delete
+      journalctl --vacuum-time=3d
+      
+      # Clean Docker
+      docker system prune -af --filter "until=24h"
+      docker volume prune -f
+      
+      # Clean temp files
+      find /tmp -type f -mtime +1 -delete
+      find /var/tmp -type f -mtime +1 -delete
+      
+      # Clean old kernels (keep current + 1)
+      apt-get autoremove --purge -y
+      
+      # Clean thumbnail cache
+      find /home -name ".thumbnails" -type d -exec rm -rf {} + 2>/dev/null || true
+      
+      # Clean bash history (keep last 100 lines)
+      find /home -name ".bash_history" -exec tail -n 100 {} \; > /tmp/hist && mv /tmp/hist {} 2>/dev/null || true
+      
+      # Clean snap cache
+      snap list --all | awk '/disabled/{print $1, $3}' | while read snapname revision; do
+          snap remove "$snapname" --revision="$revision" 2>/dev/null || true
+      done
+      
+      echo "Cleanup completed: $(date)"
+    dest: /usr/local/bin/system-cleanup.sh
+    mode: '0755'
+
+- name: Create daily cleanup cron job
+  cron:
+    name: "Daily system cleanup"
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/system-cleanup.sh >> /var/log/cleanup.log 2>&1"
+
+- name: Run initial cleanup
+  command: /usr/local/bin/system-cleanup.sh
+  changed_when: false

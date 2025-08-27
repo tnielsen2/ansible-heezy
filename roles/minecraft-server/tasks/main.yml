@@ -5,36 +5,91 @@
     state: directory
     mode: '0755'
 
-- name: Create docker-compose file
+- name: Create data directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/minecraft/data
+    - /opt/minecraft/survival-data
+
+- name: Create docker-compose file for dual servers
   copy:
     content: |
       services:
-        minecraft:
-          image: itzg/minecraft-bedrock-server:latest
-          container_name: minecraft-bedrock
+        bds:
+          image: itzg/minecraft-bedrock-server
+          container_name: minecraft-bds
           environment:
             EULA: "TRUE"
-            GAMEMODE: survival
+            GAMEMODE: creative
             DIFFICULTY: easy
-            SERVER_NAME: "Heezy Bedrock Server"
+            SERVER_NAME: "Heezy Creative Server"
             MAX_PLAYERS: 10
-            ALLOW_CHEATS: "false"
+            ALLOW_CHEATS: "true"
             ONLINE_MODE: "true"
           ports:
             - "19132:19132/udp"
           volumes:
             - ./data:/data
+          stdin_open: true
+          tty: true
+          restart: unless-stopped
+        bdsurvival:
+          image: itzg/minecraft-bedrock-server
+          container_name: minecraft-survival
+          environment:
+            EULA: "TRUE"
+            GAMEMODE: survival
+            DIFFICULTY: normal
+            SERVER_NAME: "Heezy Survival Server"
+            MAX_PLAYERS: 10
+            ALLOW_CHEATS: "false"
+            ONLINE_MODE: "true"
+          ports:
+            - "19133:19132/udp"
+          volumes:
+            - ./survival-data:/data
+          stdin_open: true
+          tty: true
           restart: unless-stopped
     dest: /opt/minecraft/docker-compose.yml
     mode: '0644'
 
-- name: Start Minecraft Bedrock server
-  community.docker.docker_compose_v2:
-    project_src: /opt/minecraft
-    state: present
+- name: Create systemd service for minecraft servers
+  copy:
+    content: |
+      [Unit]
+      Description=Minecraft Bedrock Servers
+      Requires=docker.service
+      After=docker.service
 
-- name: Open firewall for Minecraft Bedrock
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/minecraft
+      ExecStart=/usr/bin/docker compose up -d
+      ExecStop=/usr/bin/docker compose down
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/minecraft-servers.service
+    mode: '0644'
+
+- name: Start Minecraft servers
+  systemd:
+    name: minecraft-servers
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Open firewall for Minecraft servers
   ufw:
     rule: allow
-    port: '19132'
+    port: "{{ item }}"
     proto: udp
+  loop:
+    - '19132'
+    - '19133'

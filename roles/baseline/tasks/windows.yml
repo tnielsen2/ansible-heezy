@@ -184,3 +184,74 @@
         name: promtail
         state: started
         start_mode: auto
+
+- name: Create Windows cleanup script
+  win_copy:
+    content: |
+      @echo off
+      REM Windows System Cleanup Script
+      
+      REM Clean Windows Update cache
+      dism /online /cleanup-image /startcomponentcleanup /resetbase
+      
+      REM Clean temp files
+      del /q /f /s %TEMP%\*
+      del /q /f /s C:\Windows\Temp\*
+      
+      REM Clean Windows logs (keep only 3 days)
+      forfiles /p C:\Windows\System32\winevt\Logs /c "cmd /c del @path" /m *.evtx /d -3 2>nul
+      
+      REM Clean IIS logs if present
+      forfiles /p C:\inetpub\logs\LogFiles /s /c "cmd /c del @path" /m *.log /d -3 2>nul
+      
+      REM Clean Chocolatey cache
+      choco cleancache 2>nul
+      
+      REM Clean Docker (if installed)
+      docker system prune -af --filter "until=24h" 2>nul
+      docker volume prune -f 2>nul
+      
+      REM Clean Windows Error Reporting
+      del /q /f /s C:\ProgramData\Microsoft\Windows\WER\ReportQueue\* 2>nul
+      
+      REM Clean Windows Defender logs
+      del /q /f /s "C:\ProgramData\Microsoft\Windows Defender\Scans\History\*" 2>nul
+      
+      REM Clean old Windows Update files
+      cleanmgr /sagerun:1
+      
+      echo Cleanup completed: %date% %time%
+    dest: C:\Scripts\system-cleanup.bat
+
+- name: Create Scripts directory
+  win_file:
+    path: C:\Scripts
+    state: directory
+
+- name: Create scheduled task for daily cleanup
+  win_scheduled_task:
+    name: "Daily System Cleanup"
+    description: "Automated system cleanup task"
+    actions:
+    - path: C:\Scripts\system-cleanup.bat
+    triggers:
+    - type: daily
+      start_boundary: "2023-01-01T02:00:00"
+    username: SYSTEM
+    state: present
+    enabled: yes
+
+- name: Configure Windows Event Log retention
+  win_regedit:
+    path: "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\{{ item }}\MaxSize"
+    name: MaxSize
+    data: 10485760
+    type: dword
+  loop:
+    - Application
+    - System
+    - Security
+
+- name: Run initial cleanup
+  win_command: C:\Scripts\system-cleanup.bat
+  changed_when: false
