@@ -7,71 +7,61 @@
     mode: '0755'
   loop:
     - /opt/pxe/tftp
-    - /opt/pxe/tftp/pxelinux.cfg
     - /opt/pxe/http
-    - /opt/pxe/config
     - /opt/pxe/logs
 
-- name: Create iPXE boot script
+- name: Download iPXE EFI bootloader
+  get_url:
+    url: "http://boot.ipxe.org/ipxe.efi"
+    dest: /opt/pxe/tftp/ipxe.efi
+    mode: '0644'
+
+- name: Create iPXE boot script for Talos
   copy:
     content: |
       #!ipxe
-      kernel vmlinuz-amd64 talos.platform=metal slab_nomerge pti=on console=tty0 console=ttyS0,115200
-      initrd initramfs-amd64.xz
+      kernel http://192.168.1.28/vmlinuz-amd64 talos.platform=metal slab_nomerge pti=on console=tty0 console=ttyS0,115200 talos.config=http://192.168.1.28/talos-config.yaml
+      initrd http://192.168.1.28/initramfs-amd64.xz
       boot
     dest: /opt/pxe/tftp/boot.ipxe
     mode: '0644'
 
-- name: Copy Talos kernel and initramfs
+- name: Copy Talos kernel and initramfs to HTTP directory
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: '0644'
   loop:
     - src: "vmlinuz-amd64"
-      dest: "/opt/pxe/tftp/vmlinuz-amd64"
+      dest: "/opt/pxe/http/vmlinuz-amd64"
     - src: "initramfs-amd64.xz"
-      dest: "/opt/pxe/tftp/initramfs-amd64.xz"
+      dest: "/opt/pxe/http/initramfs-amd64.xz"
 
-- name: Create PXE boot menu
-  copy:
-    content: |
-      DEFAULT menu.c32
-      PROMPT 0
-      MENU TITLE PXE Boot Menu
-      TIMEOUT 300
-
-      LABEL talos
-        MENU LABEL Talos Linux
-        KERNEL vmlinuz-amd64
-        APPEND initrd=initramfs-amd64.xz talos.platform=metal slab_nomerge pti=on console=tty0 console=ttyS0,115200
-        TEXT HELP
-        Boot Talos Linux in maintenance mode
-        ENDTEXT
-    dest: /opt/pxe/tftp/pxelinux.cfg/default
-    mode: '0644'
-
-- name: Create docker-compose for PXE server
+- name: Create docker-compose for TFTP and HTTP servers
   copy:
     content: |
       services:
-        pxe-server:
-          image: ferrarimarco/pxe
-          container_name: pxe-server
+        tftp-server:
+          image: pghalliday/tftp
+          container_name: tftp-server
           restart: unless-stopped
-          network_mode: host
-          cap_add:
-            - NET_ADMIN
           volumes:
-            - /opt/pxe/tftp:/var/lib/tftpboot
-            - /opt/pxe/http:/var/www/html
-            - /opt/pxe/logs:/var/log/pxe
-          environment:
-            - DISABLE_DHCP=true
-            - PXE_PROMPT_TIMEOUT=10
-            - PXE_DEFAULT_ENTRY=talos
+            - /opt/pxe/tftp:/var/tftpboot
           ports:
             - "69:69/udp"
+          logging:
+            driver: "json-file"
+            options:
+              max-size: "10m"
+              max-file: "3"
+        
+        http-server:
+          image: nginx:alpine
+          container_name: http-server
+          restart: unless-stopped
+          volumes:
+            - /opt/pxe/http:/usr/share/nginx/html
+          ports:
             - "80:80/tcp"
           logging:
             driver: "json-file"
@@ -81,11 +71,11 @@
     dest: /opt/pxe/docker-compose.yml
     mode: '0644'
 
-- name: Create systemd service for PXE server
+- name: Create systemd service for PXE servers
   copy:
     content: |
       [Unit]
-      Description=PXE Boot Server
+      Description=PXE Boot Servers (TFTP + HTTP)
       Requires=docker.service
       After=docker.service
 
@@ -102,39 +92,6 @@
     dest: /etc/systemd/system/pxe-server.service
     mode: '0644'
   notify: reload systemd
-
-- name: Create log rotation config
-  copy:
-    content: |
-      /opt/pxe/logs/*.log {
-        daily
-        rotate 7
-        compress
-        delaycompress
-        missingok
-        notifempty
-        create 644 root root
-      }
-    dest: /etc/logrotate.d/pxe-server
-    mode: '0644'
-
-- name: Create cleanup script
-  copy:
-    content: |
-      #!/bin/bash
-      # Clean up old PXE logs and temporary files
-      find /opt/pxe/logs -name "*.log" -mtime +7 -delete
-      find /tmp -name "*pxe*" -mtime +1 -delete
-      docker system prune -f --filter "until=24h"
-    dest: /opt/pxe/cleanup.sh
-    mode: '0755'
-
-- name: Create cleanup cron job
-  cron:
-    name: "PXE server cleanup"
-    minute: "0"
-    hour: "2"
-    job: "/opt/pxe/cleanup.sh"
 
 - name: Start and enable PXE server service
   systemd:
