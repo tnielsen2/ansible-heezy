@@ -32,6 +32,8 @@
       - htop
       - tree
       - jq
+      - tftp-hpa
+      - net-tools
     state: present
   when: ansible_os_family == "Debian"
 
@@ -73,6 +75,11 @@
         name: docker
         state: started
         enabled: yes
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
   when: ansible_os_family == "Debian"
 
 - name: Check if AWS CLI is installed
