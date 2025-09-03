@@ -16,6 +16,58 @@
     dest: /opt/pxe/tftp/ipxe.efi
     mode: '0644'
 
+- name: Download PXELINUX bootloader
+  get_url:
+    url: "https://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.gz"
+    dest: /tmp/syslinux.tar.gz
+    mode: '0644'
+
+- name: Extract PXELINUX files
+  unarchive:
+    src: /tmp/syslinux.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Copy PXELINUX bootloader
+  copy:
+    src: /tmp/syslinux-6.03/bios/core/pxelinux.0
+    dest: /opt/pxe/tftp/pxelinux.0
+    mode: '0644'
+    remote_src: yes
+
+- name: Copy PXELINUX modules
+  copy:
+    src: "{{ item }}"
+    dest: "/opt/pxe/tftp/{{ item | basename }}"
+    mode: '0644'
+    remote_src: yes
+  loop:
+    - /tmp/syslinux-6.03/bios/com32/elflink/ldlinux/ldlinux.c32
+    - /tmp/syslinux-6.03/bios/com32/libutil/libutil.c32
+    - /tmp/syslinux-6.03/bios/com32/menu/vesamenu.c32
+
+- name: Create PXELINUX config directory
+  file:
+    path: /opt/pxe/tftp/pxelinux.cfg
+    state: directory
+    mode: '0755'
+
+- name: Create PXELINUX default config
+  copy:
+    content: |
+      DEFAULT menu.c32
+      PROMPT 0
+      TIMEOUT 300
+      
+      MENU TITLE PXE Boot Menu
+      
+      LABEL talos
+        MENU LABEL Talos OS
+        KERNEL http://192.168.1.28/vmlinuz-amd64
+        APPEND initrd=http://192.168.1.28/initramfs-amd64.xz talos.platform=metal slab_nomerge pti=on console=tty0 console=ttyS0,115200 talos.config=http://192.168.1.28/talos-config.yaml
+    dest: /opt/pxe/tftp/pxelinux.cfg/default
+    mode: '0644'
+
 - name: Create iPXE boot script for Talos
   copy:
     content: |
