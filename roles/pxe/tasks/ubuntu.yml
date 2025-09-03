@@ -94,11 +94,11 @@
     content: |
       services:
         tftp-server:
-          image: pghalliday/tftp
+          image: jumanjiman/tftp-hpa
           container_name: tftp-server
           restart: unless-stopped
           volumes:
-            - /opt/pxe/tftp:/var/tftpboot
+            - /opt/pxe/tftp:/tftpboot
           ports:
             - "69:69/udp"
           logging:
